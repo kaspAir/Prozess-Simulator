@@ -2,12 +2,12 @@ import os
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
 from app.simulation import simulate_end_to_end
+
 from app.dashboard import (
     dashboard_for_process,
     operational_dashboard_for_process,
     PERIOD_LABELS,
 )
-
 
 from app.models import db, Activity, Role, Function, Person, Process, Node, Edge
 from app.calculations import (
@@ -56,31 +56,17 @@ db.init_app(app)
 def index():
     return redirect(url_for("dashboard"))
 
-
 @app.route("/dashboard")
 def dashboard():
     processes = Process.query.order_by(Process.id).all()
 
-    active_tab = request.args.get("tab")
-    if active_tab:
-        session["dashboard_active_tab"] = active_tab
-    else:
-        active_tab = session.get("dashboard_active_tab", "strategic")
+    active_tab = request.args.get("tab") or "strategic"
 
-    op_cases_arg = request.args.get("op_cases", type=float)
-    if op_cases_arg is not None:
-        op_cases = op_cases_arg
-        session["dashboard_op_cases"] = op_cases
-    else:
-        op_cases = session.get("dashboard_op_cases", 80)
+    op_cases = request.args.get("op_cases", type=float)
+    if op_cases is None:
+        op_cases = 80
 
-    op_period_arg = request.args.get("op_period")
-    if op_period_arg:
-        op_period = op_period_arg
-        session["dashboard_op_period"] = op_period
-    else:
-        op_period = session.get("dashboard_op_period", "day")
-
+    op_period = request.args.get("op_period") or "day"
     op_period_label = PERIOD_LABELS.get(op_period, "Tag")
 
     dashboard_items = [
@@ -102,7 +88,6 @@ def dashboard():
         op_period_label=op_period_label,
         active_tab=active_tab,
     )
-
 
 @app.route("/activities/new", methods=["GET", "POST"])
 @app.route("/activities/<int:activity_id>", methods=["GET", "POST"])
@@ -135,20 +120,10 @@ def activity_delete(activity_id):
 @app.route("/organization")
 def organization():
     organizations = Organization.query.order_by(Organization.name).all()
-
     selected_org_id = request.args.get("org_id", type=int)
-
-    if selected_org_id:
-        session["selected_organization_id"] = selected_org_id
-    else:
-        selected_org_id = session.get("selected_organization_id")
-
-    selected_org = Organization.query.get(selected_org_id) if selected_org_id else None
-
-    if selected_org is None and organizations:
-        selected_org = organizations[0]
-        session["selected_organization_id"] = selected_org.id
-
+    selected_org = Organization.query.get(selected_org_id) if selected_org_id else (organizations[0] if organizations else None)
+    session["selected_organization_id"] = organization_id
+    
     root_units = []
     persons = []
 
@@ -160,6 +135,7 @@ def organization():
             .all()
         )
         persons = Person.query.filter_by(organization_id=selected_org.id).order_by(Person.name).all()
+        selected_organization_id = session.get("selected_organization_id")
 
     roles = Role.query.order_by(Role.name).all()
     functions = Function.query.order_by(Function.name).all()
@@ -611,24 +587,9 @@ def simulation():
     processes = Process.query.filter(Process.parent_process_id.is_(None)).order_by(Process.name).all()
 
     selected_process_id = request.values.get("process_id", type=int)
-    if selected_process_id:
-        session["simulation_process_id"] = selected_process_id
-    else:
-        selected_process_id = session.get("simulation_process_id")
+    selected_process = Process.query.get(selected_process_id) if selected_process_id else (processes[0] if processes else None)
 
-    selected_process = Process.query.get(selected_process_id) if selected_process_id else None
-
-    if selected_process is None and processes:
-        selected_process = processes[0]
-        session["simulation_process_id"] = selected_process.id
-
-    case_count_arg = request.values.get("case_count", type=float)
-    if case_count_arg is not None:
-        case_count = case_count_arg
-        session["simulation_case_count"] = case_count
-    else:
-        case_count = session.get("simulation_case_count", 1000)
-
+    case_count = request.values.get("case_count", type=float) or 1000
     result = simulate_end_to_end(selected_process, case_count) if selected_process else None
 
     return render_template(
