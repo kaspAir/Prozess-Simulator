@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="dashboard-header">
+    <div class="section-title">
+        <h2>Dashboard</h2>
+    </div>
+
+    <div class="dashboard-tabs">
+        <button type="button" class="dashboard-tab active" data-tab="strategic">Strategische Engpässe</button>
+        <button type="button" class="dashboard-tab" data-tab="operational">Operativer Betrieb</button>
+    </div>
+</section>
+
+<section id="tab-strategic" class="dashboard-tab-panel active">
+    <p class="small">
+        Engpasssicht je Hauptprozess. Rot = Engpass, gelb = bis 20% über Engpass, grün = mehr Reserve.
+        Angezeigt werden nur Aktivitäten mit zugeordneter Stelle.
+    </p>
+
+    <div class="dashboard-grid dashboard-grid-executive">
+    {% for item in dashboard_items %}
+        <section class="dashboard-process-card dashboard-process-card-executive">
+            <div class="dashboard-process-head">
+                <h2>{{ item.process.name }}</h2>
+                <a class="button dashboard-open-button" href="{{ url_for('process_graph', process_id=item.process.id) }}">Öffnen</a>
+            </div>
+
+            {% if item.rows %}
+                <div class="dashboard-bottleneck-note dashboard-bottleneck-note-compact">
+                    Engpass: {{ item.rows[0].node.name }} · {{ "%.0f"|format(item.bottleneck_capacity) }} Fälle/Jahr
+                </div>
+
+                <div class="dashboard-list dashboard-list-compact">
+                    {% for row in item.rows %}
+                        <div class="dashboard-row dashboard-row-compact dashboard-row-{{ row.status }}">
+                            <div class="dashboard-activity dashboard-activity-compact">
+                                <strong>{{ row.node.name }}</strong>
+                                <span>{{ "%.0f"|format(row.capacity) }} Fälle/Jahr · {{ "%.1f"|format(row.node.effort_minutes or 0) }} Min./Fall</span>
+                                <span class="small dashboard-position-line">
+                                    {% for position in row.positions %}
+                                        {{ position.name }}{% if position.person %} / {{ position.person.name }}{% endif %}{% if not loop.last %}, {% endif %}
+                                    {% endfor %}
+                                </span>
+                            </div>
+
+                            <div class="dashboard-bar-area dashboard-bar-area-compact">
+                                <div class="dashboard-bar dashboard-bar-{{ row.status }}" style="width: {{ row.width }}%;"></div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="warning-text">Keine Aktivitäten mit zugeordneten Stellen vorhanden.</p>
+            {% endif %}
+        </section>
+    {% endfor %}
+    </div>
+</section>
+
+<section id="tab-operational" class="dashboard-tab-panel">
+    <div class="operational-panel">
+        <div class="section-title">
+            <h2>Operativer Betrieb</h2>
+        </div>
+
+        <form method="get" class="operational-form">
+            <input type="hidden" name="tab" value="operational">
+
+            <label>Erwartete Strafbefehle
+                <input type="number" min="0" step="1" name="op_cases" value="{{ "%.0f"|format(op_cases or 0) }}">
+            </label>
+
+            <label>Zeiteinheit
+                <select name="op_period">
+                    <option value="day" {% if op_period == "day" %}selected{% endif %}>pro Tag</option>
+                    <option value="week" {% if op_period == "week" %}selected{% endif %}>pro Woche</option>
+                    <option value="month" {% if op_period == "month" %}selected{% endif %}>pro Monat</option>
+                    <option value="year" {% if op_period == "year" %}selected{% endif %}>pro Jahr</option>
+                </select>
+            </label>
+
+            <button type="submit">Operativ prüfen</button>
+        </form>
+
+        <p class="small">
+            Geprüft werden <strong>{{ "%.0f"|format(op_cases or 0) }} Strafbefehle pro {{ op_period_label }}</strong>.
+            Es wird genau diese Zeiteinheit berechnet, nicht automatisch auf Jahr hochgerechnet.
+        </p>
+    </div>
+
+    <div class="dashboard-grid dashboard-grid-executive">
+    {% for item in dashboard_items %}
+        {% set op_item = operational_items.get(item.process.id) %}
+        <section class="dashboard-process-card dashboard-process-card-executive {% if op_item and not op_item.ok %}operational-process-warning{% endif %}">
+            <div class="dashboard-process-head">
+                <h2>{{ item.process.name }}</h2>
+                <a class="button dashboard-open-button" href="{{ url_for('process_graph', process_id=item.process.id) }}">Öffnen</a>
+            </div>
+
+            {% if op_item and op_item.problem_rows %}
+                <div class="operational-warning-box">
+                    <strong>Nicht vollständig umsetzbar</strong>
+                    {% for row in op_item.problem_rows[:3] %}
+                        <div>
+                            {{ row.node.name }}:
+                            fehlen {{ "%.1f"|format(row.missing_hours) }} h /
+                            {{ "%.0f"|format(row.missing_cases) }} Strafbefehle
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% if op_item and op_item.rows %}
+                <div class="dashboard-list dashboard-list-compact">
+                    {% for row in op_item.rows %}
+                        <div class="dashboard-row dashboard-row-compact {% if not row.ok %}operational-activity-warning{% endif %}">
+                            <div class="dashboard-activity dashboard-activity-compact">
+                                <strong>{{ row.node.name }}</strong>
+                                <span>
+                                    Bedarf: {{ "%.0f"|format(row.expected_cases) }} Fälle ·
+                                    {{ "%.1f"|format(row.required_hours) }} h
+                                </span>
+                                <span>
+                                    Kapazität: {{ "%.0f"|format(row.capacity_cases) }} Fälle ·
+                                    {{ "%.1f"|format(row.capacity_hours) }} h
+                                </span>
+
+                                {% if not row.ok %}
+                                    <span class="operational-warning-text">
+                                        Fehlen: {{ "%.1f"|format(row.missing_hours) }} h /
+                                        {{ "%.0f"|format(row.missing_cases) }} Fälle
+                                    </span>
+                                {% else %}
+                                    <span class="operational-ok-text">ok</span>
+                                {% endif %}
+
+                                <span class="small dashboard-position-line">
+                                    {% for position in row.positions %}
+                                        {{ position.name }}{% if position.person %} / {{ position.person.name }}{% endif %}{% if not loop.last %}, {% endif %}
+                                    {% endfor %}
+                                </span>
+                            </div>
+
+                            <div class="dashboard-bar-area dashboard-bar-area-compact">
+                                {% set width = 100 %}
+                                {% if row.required_minutes and row.capacity_minutes %}
+                                    {% set width = [100, (row.required_minutes / row.capacity_minutes * 100)]|min %}
+                                {% endif %}
+                                <div class="dashboard-bar {% if row.ok %}dashboard-bar-green{% else %}dashboard-bar-red{% endif %}" style="width: {{ width }}%;"></div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="warning-text">Keine Aktivitäten mit zugeordneten Stellen vorhanden.</p>
+            {% endif %}
+        </section>
+    {% endfor %}
+    </div>
+</section>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const tabs = document.querySelectorAll(".dashboard-tab");
+    const panels = document.querySelectorAll(".dashboard-tab-panel");
+
+    function activate(tabName) {
+        tabs.forEach(tab => tab.classList.toggle("active", tab.dataset.tab === tabName));
+        panels.forEach(panel => panel.classList.toggle("active", panel.id === "tab-" + tabName));
+    }
+
+    tabs.forEach(tab => {
+        tab.addEventListener("click", function () {
+            activate(tab.dataset.tab);
+            const url = new URL(window.location.href);
+            url.searchParams.set("tab", tab.dataset.tab);
+            window.history.replaceState({}, "", url);
+        });
+    });
+
+    const params = new URLSearchParams(window.location.search);
+    activate(params.get("tab") || "{{ active_tab or 'strategic' }}");
+});
+</script>
+{% endblock %}

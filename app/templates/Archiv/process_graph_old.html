@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+    <h2>{{ process.name }}</h2>
+
+    {% if process.parent %}
+        <p><a class="button" href="{{ url_for('process_graph', process_id=process.parent.id) }}">Zurück zu {{ process.parent.name }}</a></p>
+    {% endif %}
+
+    <div class="process">
+        {% for node in nodes %}
+            {% if node.type == "subprocess" and node.subprocess_id %}
+                <a class="step node-{{ node.type }}" href="{{ url_for('process_graph', process_id=node.subprocess_id) }}">
+            {% else %}
+                <div class="step node-{{ node.type }}">
+            {% endif %}
+
+                <span class="step-number">{{ node.type }}</span>
+                <h3>{{ node.name }}</h3>
+                {% if node.effort_minutes %}<p>{{ node.effort_minutes }} Minuten</p>{% endif %}
+                {% if node.legal_basis %}<p class="small">{{ node.legal_basis }}</p>{% endif %}
+                {% if node.roles %}
+                    <p class="small">Rollen:
+                    {% for role in node.roles %}{{ role.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+                    </p>
+                {% endif %}
+
+            {% if node.type == "subprocess" and node.subprocess_id %}
+                </a>
+            {% else %}
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+</section>
+
+<section>
+    <h2>Sequenzflüsse</h2>
+    <table>
+        <tr><th>Von</th><th>Bedingung</th><th>Nach</th></tr>
+        {% for edge in edges %}
+            <tr>
+                <td>{{ edge.source_node.name }}</td>
+                <td>{{ edge.condition or "" }}</td>
+                <td>{{ edge.target_node.name }}</td>
+            </tr>
+        {% endfor %}
+    </table>
+</section>
+{% endblock %}

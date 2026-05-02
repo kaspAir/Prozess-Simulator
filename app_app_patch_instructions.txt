@@ -1,0 +1,24 @@
+Bitte in app/app.py ändern:
+
+1) Import-Zeile ersetzen:
+
+ALT:
+from app.models import db, Activity, Role, Function, Person
+
+NEU:
+from app.models import db, Activity, Role, Function, Person, Process, Node, Edge
+
+
+2) Unterhalb der bestehenden index()-Route diese Route ergänzen:
+
+@app.route("/process/<int:process_id>")
+def process_graph(process_id):
+    process = Process.query.get_or_404(process_id)
+    nodes = Node.query.filter_by(process_id=process.id).order_by(Node.sort_order, Node.id).all()
+    edges = Edge.query.join(Node, Edge.source_node_id == Node.id).filter(Node.process_id == process.id).all()
+    return render_template("process_graph.html", process=process, nodes=nodes, edges=edges)
+
+
+3) Optional in app/templates/base.html im nav ergänzen:
+
+<a href="{{ url_for('process_graph', process_id=1) }}">BPMN-Light</a>

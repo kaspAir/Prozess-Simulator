@@ -1,0 +1,1404 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f5f7fb;
+    color: #1d2433;
+}
+
+header {
+    background: #18233f;
+    color: white;
+    padding: 1rem 2rem;
+}
+
+header h1 {
+    margin: 0 0 .5rem 0;
+}
+
+nav a {
+    color: white;
+    margin-right: 1rem;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+main {
+    padding: 2rem;
+}
+
+.summary, .form-card, section {
+    background: white;
+    border-radius: 14px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 6px 18px rgba(24,35,63,.08);
+}
+
+.section-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.process {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.step {
+    display: block;
+    width: 280px;
+    min-height: 250px;
+    padding: 1rem;
+    border-radius: 14px;
+    background: #eef3ff;
+    color: #1d2433;
+    text-decoration: none;
+    border: 2px solid transparent;
+}
+
+.step:hover {
+    border-color: #315bdc;
+}
+
+.step-number {
+    display: inline-flex;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #315bdc;
+    color: white;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.small {
+    font-size: .85rem;
+    color: #5d677d;
+}
+
+.button, button {
+    background: #315bdc;
+    color: white;
+    border: 0;
+    border-radius: 8px;
+    padding: .65rem 1rem;
+    text-decoration: none;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.danger {
+    background: #b00020;
+}
+
+label {
+    display: block;
+    margin-bottom: 1rem;
+    font-weight: bold;
+}
+
+input, textarea, select {
+    display: block;
+    width: 100%;
+    margin-top: .35rem;
+    padding: .6rem;
+    border: 1px solid #ccd3e0;
+    border-radius: 8px;
+}
+
+textarea {
+    min-height: 110px;
+}
+
+fieldset {
+    border: 1px solid #ccd3e0;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.check {
+    font-weight: normal;
+}
+
+.check input {
+    display: inline-block;
+    width: auto;
+}
+
+.org-tree, .org-tree ul {
+    list-style: none;
+    border-left: 2px solid #ccd3e0;
+    margin-left: 1rem;
+    padding-left: 1rem;
+}
+
+.org-tree li {
+    margin: .8rem 0;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+td, th {
+    border-bottom: 1px solid #e0e5ef;
+    padding: .6rem;
+    text-align: left;
+}
+
+.inactive {
+    opacity: .45;
+}
+
+/* BPMN-Light Drag-&-Drop Editor */
+
+.bpmn-canvas {
+    position: relative;
+    min-height: 680px;
+    overflow: auto;
+    background:
+        linear-gradient(90deg, rgba(49,91,220,.05) 1px, transparent 1px),
+        linear-gradient(rgba(49,91,220,.05) 1px, transparent 1px);
+    background-size: 24px 24px;
+    border: 1px solid #dce3f2;
+    border-radius: 14px;
+}
+
+.bpmn-svg {
+    position: absolute;
+    inset: 0;
+    min-width: 2200px;
+    width: 2200px;
+    height: 1000px;
+    pointer-events: none;
+    overflow: visible;
+}
+
+.bpmn-edge {
+    fill: none;
+    stroke: #27324a;
+    stroke-width: 2;
+}
+
+.bpmn-condition {
+    font-size: 13px;
+    fill: #27324a;
+    paint-order: stroke;
+    stroke: white;
+    stroke-width: 5px;
+    stroke-linejoin: round;
+}
+
+.bpmn-node-wrap {
+    position: absolute;
+    z-index: 3;
+    cursor: grab;
+    user-select: none;
+}
+
+.bpmn-node-wrap.dragging {
+    cursor: grabbing;
+    z-index: 10;
+}
+
+.bpmn-node-wrap.selected-source .bpmn-node {
+    outline: 4px solid #19a974;
+    outline-offset: 4px;
+}
+
+.bpmn-node {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: .25rem;
+    text-align: center;
+    color: #1d2433;
+    text-decoration: none;
+    background: white;
+}
+
+.bpmn-task,
+.bpmn-subprocess {
+    width: 165px;
+    min-height: 90px;
+    padding: .75rem;
+    border: 2px solid #27324a;
+    border-radius: 12px;
+    box-shadow: 0 6px 16px rgba(24,35,63,.10);
+}
+
+.bpmn-subprocess {
+    border-style: double;
+    border-width: 5px;
+    background: #eef3ff;
+}
+
+.bpmn-start,
+.bpmn-end {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 3px solid #27324a;
+    font-size: .9rem;
+}
+
+.bpmn-end {
+    border-width: 6px;
+}
+
+.bpmn-xor {
+    width: 92px;
+    height: 92px;
+    border: 2px solid #27324a;
+    transform: rotate(45deg);
+    box-shadow: 0 6px 16px rgba(24,35,63,.10);
+}
+
+.bpmn-xor::before {
+    content: "×";
+    position: absolute;
+    font-size: 52px;
+    line-height: 1;
+    transform: rotate(-45deg);
+    color: #27324a;
+}
+
+.bpmn-xor .diamond-label {
+    position: absolute;
+    top: 102px;
+    left: -52px;
+    width: 196px;
+    transform: rotate(-45deg);
+    font-weight: bold;
+    font-size: .9rem;
+}
+
+.bpmn-node span {
+    font-size: .85rem;
+}
+
+.mini-edit {
+    position: absolute;
+    right: -10px;
+    top: -10px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #315bdc;
+    color: white;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    box-shadow: 0 4px 12px rgba(24,35,63,.25);
+    cursor: pointer;
+}
+
+.mini-edit:hover {
+    transform: scale(1.08);
+}
+
+.section-title > div {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+
+.button.active {
+    background: #19a974;
+}
+
+.connect-mode .bpmn-node-wrap {
+    cursor: crosshair;
+}
+
+.grid-two {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+
+/* Step 5: bessere Flow-Darstellung und Löschen */
+
+.bpmn-edge {
+    fill: none;
+    stroke: #27324a;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.bpmn-condition {
+    font-size: 13px;
+    font-weight: 600;
+    fill: #101828;
+    paint-order: stroke;
+    stroke: white;
+    stroke-width: 8px;
+    stroke-linejoin: round;
+}
+
+.edge-actions {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+}
+
+.edge-actions form {
+    margin: 0;
+}
+
+.link-danger {
+    border: 0;
+    background: transparent;
+    color: #b00020;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.link-danger:hover {
+    color: #7a0015;
+}
+
+
+/* Step 6: robustere Verbindungserstellung und Flow-Löschen */
+
+.bpmn-edge-delete {
+    pointer-events: all;
+    cursor: pointer;
+    font-size: 22px;
+    font-weight: 900;
+    fill: #b00020;
+    paint-order: stroke;
+    stroke: white;
+    stroke-width: 6px;
+    stroke-linejoin: round;
+}
+
+.bpmn-edge-delete:hover {
+    fill: #7a0015;
+}
+
+.edge-actions {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+}
+
+.link-danger {
+    border: 0;
+    background: transparent;
+    color: #b00020;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.link-danger:hover {
+    color: #7a0015;
+}
+
+.connect-mode .bpmn-node-wrap {
+    cursor: crosshair !important;
+}
+
+.bpmn-node-wrap.selected-source .bpmn-node {
+    outline: 5px solid #19a974;
+    outline-offset: 6px;
+}
+
+
+/* Step 8: Logos im Header */
+
+.app-header {
+    background: white;
+    color: #1d2433;
+    padding: 1rem 2rem;
+    border-bottom: 1px solid #dce3f2;
+    box-shadow: 0 4px 14px rgba(24,35,63,.06);
+}
+
+.logo-row {
+    display: grid;
+    grid-template-columns: 280px 1fr 220px;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.logo-left img {
+    max-width: 260px;
+    max-height: 78px;
+    object-fit: contain;
+}
+
+.logo-right {
+    text-align: right;
+}
+
+.logo-right img {
+    max-width: 190px;
+    max-height: 86px;
+    object-fit: contain;
+}
+
+.app-title {
+    text-align: center;
+}
+
+.app-title h1 {
+    margin: 0 0 .6rem 0;
+    color: #18233f;
+}
+
+.app-header nav a {
+    color: #315bdc;
+    margin: 0 .6rem;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.app-header nav a:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 900px) {
+    .logo-row {
+        grid-template-columns: 1fr;
+        text-align: center;
+    }
+
+    .logo-right {
+        text-align: center;
+    }
+}
+
+/* Step 9: grafische Aufbauorganisation */
+
+.inline-form {
+    margin: 1rem 0;
+}
+
+.inline-form label {
+    max-width: 420px;
+}
+
+.org-chart,
+.org-chart ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    position: relative;
+}
+
+.org-chart {
+    display: flex;
+    justify-content: center;
+    overflow-x: auto;
+    padding: 1rem 0 2rem 0;
+}
+
+.org-chart ul {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    padding-top: 2rem;
+}
+
+.org-chart li {
+    text-align: center;
+    position: relative;
+    padding: 0 .5rem;
+}
+
+.org-chart li::before,
+.org-chart li::after {
+    content: "";
+    position: absolute;
+    top: -1rem;
+    width: 50%;
+    height: 1rem;
+    border-top: 2px solid #ccd3e0;
+}
+
+.org-chart li::before {
+    right: 50%;
+}
+
+.org-chart li::after {
+    left: 50%;
+    border-left: 2px solid #ccd3e0;
+}
+
+.org-chart > li::before,
+.org-chart > li::after {
+    display: none;
+}
+
+.org-chart ul::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    height: 2rem;
+    border-left: 2px solid #ccd3e0;
+}
+
+.org-card {
+    display: inline-block;
+    min-width: 220px;
+    max-width: 280px;
+    background: white;
+    border: 2px solid #27324a;
+    border-radius: 14px;
+    padding: .9rem;
+    box-shadow: 0 6px 16px rgba(24,35,63,.10);
+}
+
+.org-card-header {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+}
+
+.org-card-header span {
+    font-size: .8rem;
+    color: #5d677d;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.org-card-actions {
+    margin-top: .75rem;
+    display: flex;
+    gap: .75rem;
+    justify-content: center;
+    font-size: .9rem;
+}
+
+/* Step 10: Prozesslandkarte */
+
+.process-map-canvas {
+    position: relative;
+    min-height: 620px;
+    overflow: auto;
+    background:
+        linear-gradient(90deg, rgba(49,91,220,.05) 1px, transparent 1px),
+        linear-gradient(rgba(49,91,220,.05) 1px, transparent 1px);
+    background-size: 24px 24px;
+    border: 1px solid #dce3f2;
+    border-radius: 14px;
+}
+
+.process-map-svg {
+    position: absolute;
+    inset: 0;
+    width: 1800px;
+    height: 900px;
+    pointer-events: none;
+}
+
+.process-card-map {
+    position: absolute;
+    z-index: 3;
+    width: 235px;
+    min-height: 105px;
+    padding: 1rem;
+    background: white;
+    border: 2px solid #27324a;
+    border-radius: 16px;
+    box-shadow: 0 6px 16px rgba(24,35,63,.10);
+    cursor: grab;
+    user-select: none;
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+}
+
+.process-card-map:hover {
+    border-color: #315bdc;
+}
+
+.process-card-map.dragging {
+    cursor: grabbing;
+    z-index: 10;
+}
+
+.process-card-map span {
+    font-size: .85rem;
+    color: #5d677d;
+}
+
+.process-card-actions {
+    display: flex;
+    gap: .75rem;
+    margin-top: .25rem;
+    font-size: .9rem;
+}
+
+.process-map-edge {
+    fill: none;
+    stroke: #27324a;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Step 11: Prozess löschen */
+
+.process-actions {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.process-actions form,
+.process-card-actions form {
+    margin: 0;
+}
+
+.process-card-actions {
+    flex-wrap: wrap;
+}
+
+.process-card-actions .link-danger {
+    font-size: .9rem;
+}
+
+/* Step 12: Prozess-Abhängigkeiten lösen */
+
+.link-warning {
+    border: 0;
+    background: transparent;
+    color: #b56b00;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.link-warning:hover {
+    color: #7a4900;
+}
+
+.process-map-unlink {
+    pointer-events: all;
+    cursor: pointer;
+    font-size: 24px;
+    font-weight: 900;
+    fill: #b56b00;
+    paint-order: stroke;
+    stroke: white;
+    stroke-width: 6px;
+    stroke-linejoin: round;
+}
+
+.process-map-unlink:hover {
+    fill: #7a4900;
+}
+
+/* Step 14: Prozesse verbinden */
+
+.process-map-canvas.connect-mode .process-card-map {
+    cursor: crosshair;
+}
+
+.process-card-map.selected-source {
+    outline: 5px solid #19a974;
+    outline-offset: 6px;
+}
+
+#connect-process-mode.active {
+    background: #19a974;
+}
+
+/* Step 15: Personen nach Organisation */
+
+.person-org-note {
+    color: #5d677d;
+    font-size: .9rem;
+}
+
+/* Step 17: Stellen im Organigramm */
+
+.org-card-position {
+    border-style: dashed;
+    background: #fbfcff;
+}
+
+.position-person {
+    margin: .6rem 0;
+    padding: .5rem;
+    background: #eef3ff;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+}
+
+.position-person span {
+    font-size: .85rem;
+    color: #5d677d;
+}
+
+/* Step 18: Stellen als aufklappbare Tabellen */
+
+.positions-details {
+    margin-top: .75rem;
+    text-align: left;
+    background: #f5f7fb;
+    border-radius: 10px;
+    padding: .5rem;
+}
+
+.positions-details summary {
+    cursor: pointer;
+    font-weight: bold;
+    color: #315bdc;
+}
+
+.positions-table {
+    margin-top: .5rem;
+    font-size: .85rem;
+    background: white;
+}
+
+.positions-table th,
+.positions-table td {
+    padding: .45rem;
+    vertical-align: top;
+}
+
+.org-card {
+    min-width: 280px;
+    max-width: 540px;
+}
+
+.org-card-actions {
+    flex-wrap: wrap;
+}
+
+.position-only {
+    border-left: 4px solid #315bdc;
+    padding-left: 1rem;
+}
+
+/* Step 19: Prozesskosten */
+
+.process-cost-summary {
+    margin: 1rem 0;
+    padding: .85rem 1rem;
+    border-radius: 12px;
+    background: #eef3ff;
+    border-left: 5px solid #315bdc;
+}
+
+.cost-pill {
+    display: inline-block;
+    padding: .2rem .45rem;
+    border-radius: 999px;
+    background: #e8fff3;
+    color: #0b6b3a;
+    font-weight: bold;
+    font-size: .8rem;
+}
+
+/* Step 20: Kennzahlen */
+
+.process-cost-summary {
+    margin: 1rem 0;
+    padding: .85rem 1rem;
+    border-radius: 12px;
+    background: #eef3ff;
+    border-left: 5px solid #315bdc;
+}
+
+.cost-pill {
+    display: inline-block;
+    padding: .2rem .45rem;
+    border-radius: 999px;
+    background: #e8fff3;
+    color: #0b6b3a;
+    font-weight: bold;
+    font-size: .8rem;
+}
+
+.process-metrics {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+    margin: .25rem 0;
+}
+
+.process-metrics span {
+    display: inline-block;
+    padding: .25rem .5rem;
+    border-radius: 999px;
+    background: #eef3ff;
+    color: #18233f;
+    font-weight: bold;
+    font-size: .85rem;
+}
+
+.process-card-map {
+    min-height: 145px;
+}
+
+/* Step 22: Owner und Kosten sichtbar */
+
+.process-cost-summary {
+    margin: 1rem 0;
+    padding: .85rem 1rem;
+    border-radius: 12px;
+    background: #eef3ff;
+    border-left: 5px solid #315bdc;
+}
+
+.cost-pill {
+    display: inline-block;
+    padding: .2rem .45rem;
+    border-radius: 999px;
+    background: #e8fff3;
+    color: #0b6b3a;
+    font-weight: bold;
+    font-size: .8rem;
+}
+
+.process-metrics {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+    margin: .25rem 0;
+}
+
+.process-metrics span {
+    display: inline-block;
+    padding: .25rem .5rem;
+    border-radius: 999px;
+    background: #eef3ff;
+    color: #18233f;
+    font-weight: bold;
+    font-size: .85rem;
+}
+
+.warning-text {
+    color: #b56b00;
+    font-weight: bold;
+}
+
+/* Step 23: Funktionsvalidierung */
+
+.function-warning-badge {
+    display: inline-block;
+    padding: .2rem .45rem;
+    border-radius: 999px;
+    background: #ffe8e8;
+    color: #9f1239;
+    font-weight: bold;
+    font-size: .8rem;
+}
+
+.person-warning {
+    display: inline-block;
+    padding: .2rem .4rem;
+    border-radius: 8px;
+    background: #ffe8e8;
+    color: #9f1239;
+    font-size: .8rem;
+    font-weight: bold;
+}
+
+.person-ok {
+    display: inline-block;
+    padding: .2rem .4rem;
+    border-radius: 8px;
+    background: #e8fff3;
+    color: #0b6b3a;
+    font-size: .8rem;
+}
+
+/* Step 24: XOR-Wahrscheinlichkeiten */
+
+.xor-warning-box {
+    margin: 1rem 0;
+    padding: .85rem 1rem;
+    border-radius: 12px;
+    background: #fff4e5;
+    border-left: 5px solid #b56b00;
+    color: #7a4900;
+    font-weight: bold;
+}
+
+/* Step 26: reichere Aktivitätsanzeige */
+
+.node-detail-block {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    margin-top: .25rem;
+}
+
+.node-detail-title {
+    font-size: .72rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #5d677d;
+}
+
+.node-has-warning {
+    border-color: #9f1239 !important;
+    background: #fff5f5 !important;
+}
+
+.function-warning-badge {
+    display: inline-block;
+    padding: .2rem .45rem;
+    border-radius: 999px;
+    background: #ffe8e8;
+    color: #9f1239;
+    font-weight: bold;
+    font-size: .8rem;
+}
+
+.person-warning {
+    display: inline-block;
+    padding: .2rem .4rem;
+    border-radius: 8px;
+    background: #ffe8e8;
+    color: #9f1239;
+    font-size: .78rem;
+    font-weight: bold;
+}
+
+.person-ok {
+    display: inline-block;
+    padding: .2rem .4rem;
+    border-radius: 8px;
+    background: #e8fff3;
+    color: #0b6b3a;
+    font-size: .78rem;
+}
+
+/* Step 27: End-to-End Simulation */
+
+.simulation-form {
+    max-width: 640px;
+}
+
+.simulation-summary {
+    margin: 1rem 0;
+    padding: 1rem;
+    border-radius: 12px;
+    font-size: 1.05rem;
+}
+
+.simulation-ok {
+    background: #e8fff3;
+    border-left: 5px solid #0b6b3a;
+}
+
+.simulation-not-ok {
+    background: #ffe8e8;
+    border-left: 5px solid #9f1239;
+}
+
+.capacity-warning-row {
+    background: #ffe8e8;
+    color: #9f1239;
+    font-weight: bold;
+}
+
+/* Step 29: Jahresarbeitszeit / Gesamtkapazität */
+
+.simulation-summary {
+    margin: 1rem 0;
+    padding: 1rem;
+    border-radius: 12px;
+    font-size: 1.05rem;
+}
+
+.simulation-ok {
+    background: #e8fff3;
+    border-left: 5px solid #0b6b3a;
+}
+
+.simulation-not-ok {
+    background: #ffe8e8;
+    border-left: 5px solid #9f1239;
+}
+
+.capacity-warning-row {
+    background: #ffe8e8;
+    color: #9f1239;
+    font-weight: bold;
+}
+
+/* Step 30: transparente Kapazitätsrechnung */
+
+.unassigned-warning {
+    margin: 1rem 0;
+    padding: 1rem;
+    border-radius: 12px;
+    background: #fff4e5;
+    border-left: 5px solid #b56b00;
+    color: #7a4900;
+    font-weight: bold;
+}
+
+.capacity-warning-row {
+    background: #ffe8e8;
+    color: #9f1239;
+    font-weight: bold;
+}
+
+.simulation-summary {
+    margin: 1rem 0;
+    padding: 1rem;
+    border-radius: 12px;
+    font-size: 1.05rem;
+}
+
+.simulation-ok {
+    background: #e8fff3;
+    border-left: 5px solid #0b6b3a;
+}
+
+.simulation-not-ok {
+    background: #ffe8e8;
+    border-left: 5px solid #9f1239;
+}
+
+.xor-save-button {
+    margin-top: .35rem;
+    padding: .25rem .45rem;
+    font-size: .75rem;
+    border-radius: 6px;
+    border: 1px solid #a9c8ff;
+    background: #e6f0ff;   /* hellblau */
+    color: #0b3a8f;        /* dunkler Text */
+    cursor: pointer;
+}
+
+.xor-save-button:hover {
+    background: #d4e6ff;
+}
+
+/* Step 32: Dashboard */
+
+.dashboard-process-card {
+    margin-bottom: 2rem;
+}
+
+.dashboard-bottleneck-note {
+    margin: .75rem 0 1rem 0;
+    padding: .75rem 1rem;
+    border-radius: 12px;
+    background: #ffe8e8;
+    border-left: 5px solid #9f1239;
+    font-weight: bold;
+}
+
+.dashboard-list {
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+}
+
+.dashboard-row {
+    display: grid;
+    grid-template-columns: minmax(280px, 420px) 1fr;
+    gap: 1rem;
+    align-items: center;
+    padding: .75rem;
+    border-radius: 14px;
+    background: white;
+    border: 1px solid #d6def0;
+}
+
+.dashboard-activity {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+}
+
+.dashboard-bar-area {
+    height: 32px;
+    border-radius: 999px;
+    background: #eef3ff;
+    overflow: hidden;
+}
+
+.dashboard-bar {
+    height: 100%;
+    min-width: 12px;
+    border-radius: 999px;
+}
+
+.dashboard-bar-red {
+    background: #d90429;
+}
+
+.dashboard-bar-yellow {
+    background: #f5c542;
+}
+
+.dashboard-bar-green {
+    background: #19a974;
+}
+
+.dashboard-row-red {
+    border-left: 6px solid #d90429;
+}
+
+.dashboard-row-yellow {
+    border-left: 6px solid #f5c542;
+}
+
+.dashboard-row-green {
+    border-left: 6px solid #19a974;
+}
+
+@media (max-width: 900px) {
+    .dashboard-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Step 33: Dashboard nebeneinander + eckige Balken */
+
+/* Falls die Dashboard-Sections direkt nacheinander kommen */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 1.25rem;
+    align-items: start;
+}
+
+.dashboard-process-card {
+    margin-bottom: 0;
+    height: 100%;
+}
+
+/* Balken eckig */
+.dashboard-bar-area {
+    height: 32px;
+    border-radius: 0;
+    background: #eef3ff;
+    overflow: hidden;
+}
+
+.dashboard-bar {
+    height: 100%;
+    min-width: 12px;
+    border-radius: 0;
+}
+
+/* Etwas kompakter, damit mehrere Hauptprozesse nebeneinander Platz haben */
+.dashboard-row {
+    grid-template-columns: minmax(220px, 340px) 1fr;
+    gap: .75rem;
+    padding: .65rem;
+}
+
+.dashboard-activity strong {
+    font-size: .95rem;
+}
+
+.dashboard-activity span {
+    font-size: .85rem;
+}
+
+@media (max-width: 1100px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Step 34: Executive Dashboard - alle Hauptprozesse nebeneinander */
+
+.dashboard-header {
+    margin-bottom: 1rem;
+}
+
+.dashboard-grid-executive {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: start;
+}
+
+.dashboard-process-card-executive {
+    margin: 0;
+    padding: .75rem;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid #d6def0;
+    box-shadow: 0 8px 22px rgba(24, 35, 63, .08);
+    min-width: 0;
+}
+
+.dashboard-process-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: .6rem;
+}
+
+.dashboard-process-head h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    line-height: 1.2;
+}
+
+.dashboard-open-button {
+    padding: .45rem .7rem;
+    font-size: .85rem;
+    white-space: nowrap;
+}
+
+.dashboard-bottleneck-note-compact {
+    margin: .4rem 0 .65rem 0;
+    padding: .5rem .65rem;
+    border-radius: 0;
+    font-size: .85rem;
+    line-height: 1.25;
+}
+
+.dashboard-list-compact {
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+}
+
+.dashboard-row-compact {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(110px, .9fr);
+    gap: .55rem;
+    align-items: center;
+    padding: .45rem .5rem;
+    border-radius: 0;
+    min-height: 72px;
+}
+
+.dashboard-activity-compact {
+    min-width: 0;
+}
+
+.dashboard-activity-compact strong {
+    display: block;
+    font-size: .82rem;
+    line-height: 1.15;
+    margin-bottom: .15rem;
+}
+
+.dashboard-activity-compact span {
+    display: block;
+    font-size: .76rem;
+    line-height: 1.2;
+}
+
+.dashboard-position-line {
+    max-height: 2.4em;
+    overflow: hidden;
+}
+
+.dashboard-bar-area-compact {
+    height: 24px;
+    border-radius: 0;
+    background: #eef3ff;
+    overflow: hidden;
+}
+
+.dashboard-bar {
+    border-radius: 0 !important;
+}
+
+/* Bei sehr kleinen Bildschirmen auf 1 Spalte zurückfallen */
+@media (max-width: 1200px) {
+    .dashboard-grid-executive {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-row-compact {
+        grid-template-columns: minmax(0, 1fr) minmax(140px, .8fr);
+    }
+}
+
+/* Step 36: Operativer Betrieb Dashboard */
+
+.operational-panel {
+    margin-bottom: 1rem;
+}
+
+.operational-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+    align-items: end;
+    padding: .75rem;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid #d6def0;
+}
+
+.operational-form label {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    font-weight: bold;
+}
+
+.operational-form input,
+.operational-form select {
+    min-width: 180px;
+}
+
+.operational-process-warning {
+    border: 3px solid #d90429 !important;
+}
+
+.operational-activity-warning {
+    outline: 3px solid #d90429;
+    background: #fff5f5;
+}
+
+.operational-warning-box {
+    margin: .4rem 0 .65rem 0;
+    padding: .55rem .65rem;
+    border-radius: 0;
+    background: #ffe8e8;
+    border-left: 6px solid #d90429;
+    color: #9f1239;
+    font-size: .82rem;
+    line-height: 1.25;
+}
+
+.operational-warning-text {
+    color: #9f1239;
+    font-weight: bold;
+}
+
+.operational-ok-text {
+    color: #0b6b3a;
+    font-weight: bold;
+}
+

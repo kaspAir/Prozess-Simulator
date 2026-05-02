@@ -1,0 +1,9 @@
+In app/templates/process_graph.html im oberen Button-Block diesen Button ergänzen:
+
+<a class="button" href="{{ url_for('process_edit', process_id=process.id) }}" target="_blank">Prozess umbenennen</a>
+
+Empfohlen direkt nach:
+
+<h2>{{ process.name }}</h2>
+
+bzw. im div mit den Buttons.

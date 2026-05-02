@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="summary">
+    <h2>Auswertung</h2>
+    {% if bottleneck_activity %}
+        <p><strong>Flaschenhals:</strong> {{ bottleneck_activity.name }}</p>
+        <p><strong>Max. Strafbefehle/Jahr:</strong> {{ "%.0f"|format(max_cases) }}</p>
+    {% else %}
+        <p>Noch keine belastbare Kapazität berechenbar.</p>
+    {% endif %}
+</section>
+
+<section>
+    <div class="section-title">
+        <h2>Prozess</h2>
+        <a class="button" href="{{ url_for('activity_edit') }}" target="_blank">Aktivität hinzufügen</a>
+    </div>
+
+    <div class="process">
+        {% for row in rows %}
+            <a class="step" href="{{ url_for('activity_edit', activity_id=row.activity.id) }}" target="_blank">
+                <span class="step-number">{{ loop.index }}</span>
+                <h3>{{ row.activity.name }}</h3>
+                <p>{{ row.activity.effort_minutes }} Minuten</p>
+                <p class="small">{{ row.activity.legal_basis }}</p>
+                <p><strong>Kosten:</strong> CHF {{ "%.2f"|format(row.cost) }}</p>
+                <p><strong>Kapazität/Jahr:</strong> {{ "%.0f"|format(row.capacity) }}</p>
+                <p class="small">
+                    Rollen:
+                    {% for role in row.activity.roles %}
+                        {{ role.name }}{% if not loop.last %}, {% endif %}
+                    {% else %}
+                        keine
+                    {% endfor %}
+                </p>
+            </a>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

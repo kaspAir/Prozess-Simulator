@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+    <div class="section-title">
+        <h2>Prozesslandkarte</h2>
+        <div>
+            <a class="button" href="{{ url_for('process_edit') }}" target="_blank">Prozess hinzufügen</a>
+            <button type="button" class="button" id="connect-process-mode">Prozesse verbinden</button>
+            <a class="button" href="{{ url_for('process_list') }}">Prozessliste</a>
+        </div>
+    </div>
+
+    <div class="process-map-canvas" id="process-map-canvas">
+        <svg class="process-map-svg" id="process-map-svg"></svg>
+
+        {% for process in processes %}
+            {% set summary = process_summaries.get(process.id, {}) %}
+            {% set fallback_x = 80 + (loop.index0 % 4) * 300 %}
+            {% set fallback_y = 120 + (loop.index0 // 4) * 180 %}
+
+            <div class="process-card-map"
+                 data-process-id="{{ process.id }}"
+                 data-process-name="{{ process.name }}"
+                 data-parent-id="{{ process.parent_process_id or '' }}"
+                 data-url="{{ url_for('process_graph', process_id=process.id) }}"
+                 style="left: {{ process.x if process.x is not none else fallback_x }}px; top: {{ process.y if process.y is not none else fallback_y }}px;">
+
+                <strong>{{ process.name }}</strong>
+
+                {% if process.parent %}
+                    <span class="process-parent-label">eingebunden in: {{ process.parent.name }}</span>
+                {% else %}
+                    <span class="process-parent-label">Hauptprozess</span>
+                {% endif %}
+
+                {% if process.owner_org_unit %}
+                    <span>Owner: {{ process.owner_org_unit.organization.name }} / {{ process.owner_org_unit.name }}</span>
+                {% else %}
+                    <span class="warning-text">kein Owner</span>
+                {% endif %}
+
+                <div class="process-metrics">
+                    <span>{{ "%.0f"|format(summary.get("effort_minutes", 0)) }} Min.</span>
+                    <span>CHF {{ "%.2f"|format(summary.get("cost", 0)) }}</span>
+                </div>
+
+                {% if summary.get("bottleneck_node") %}
+                    <span class="small">Engpass: {{ summary.get("bottleneck_node").name }}</span>
+                {% endif %}
+
+                <div class="process-card-actions">
+                    <a href="{{ url_for('process_graph', process_id=process.id) }}">öffnen</a>
+                    <a href="{{ url_for('process_edit', process_id=process.id) }}" target="_blank">bearbeiten</a>
+
+                    {% if process.parent_process_id %}
+                    <form method="post" action="{{ url_for('process_detach', process_id=process.id) }}" onsubmit="return confirm('Verbindung lösen?');">
+                        <button class="link-warning" type="submit">Verbindung lösen</button>
+                    </form>
+                    {% endif %}
+
+                    <form method="post" action="{{ url_for('process_delete', process_id=process.id) }}" onsubmit="return confirm('Prozess wirklich löschen?');">
+                        <button class="link-danger" type="submit">löschen</button>
+                    </form>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const canvas = document.getElementById("process-map-canvas");
+    const svg = document.getElementById("process-map-svg");
+    const connectButton = document.getElementById("connect-process-mode");
+
+    let dragging = null, moved = false, offsetX = 0, offsetY = 0;
+    let connectMode = false, sourceProcess = null;
+
+    function markerSvg() {
+        return `<defs><marker id="map-arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z"></path></marker></defs>`;
+    }
+
+    function card(id) {
+        return document.querySelector(`.process-card-map[data-process-id="${id}"]`);
+    }
+
+    function rect(el) {
+        const c = canvas.getBoundingClientRect();
+        const r = el.getBoundingClientRect();
+        return {
+            left: r.left - c.left + canvas.scrollLeft,
+            top: r.top - c.top + canvas.scrollTop,
+            right: r.right - c.left + canvas.scrollLeft,
+            bottom: r.bottom - c.top + canvas.scrollTop,
+            cx: r.left - c.left + canvas.scrollLeft + r.width / 2,
+            cy: r.top - c.top + canvas.scrollTop + r.height / 2
+        };
+    }
+
+    function renderLines() {
+        svg.innerHTML = markerSvg();
+
+        document.querySelectorAll(".process-card-map[data-parent-id]").forEach(function (child) {
+            const parentId = child.dataset.parentId;
+            if (!parentId) return;
+
+            const parent = card(parentId);
+            if (!parent) return;
+
+            const p = rect(parent);
+            const c = rect(child);
+            const start = {x: p.right, y: p.cy};
+            const end = {x: c.left, y: c.cy};
+            const midX = (start.x + end.x) / 2;
+
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("d", `M ${start.x} ${start.y} L ${midX} ${start.y} L ${midX} ${end.y} L ${end.x} ${end.y}`);
+            path.setAttribute("class", "process-map-edge");
+            path.setAttribute("marker-end", "url(#map-arrow)");
+            svg.appendChild(path);
+
+            const unlink = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            unlink.setAttribute("x", midX + 8);
+            unlink.setAttribute("y", (start.y + end.y) / 2 - 8);
+            unlink.setAttribute("class", "process-map-unlink");
+            unlink.setAttribute("data-process-id", child.dataset.processId);
+            unlink.textContent = "×";
+            svg.appendChild(unlink);
+        });
+
+        document.querySelectorAll(".process-map-unlink").forEach(function (btn) {
+            btn.addEventListener("click", async function () {
+                if (!confirm("Diese Prozess-Abhängigkeit wirklich lösen?")) return;
+
+                const processId = btn.dataset.processId;
+                const response = await fetch(`/api/processes/${processId}/detach`, {method: "POST"});
+                const data = await response.json();
+
+                if (!data.ok) {
+                    alert("Verbindung konnte nicht gelöst werden.");
+                    return;
+                }
+
+                const child = card(processId);
+                if (child) {
+                    child.dataset.parentId = "";
+                    const label = child.querySelector(".process-parent-label");
+                    if (label) label.textContent = "Hauptprozess";
+                }
+                renderLines();
+            });
+        });
+    }
+
+    async function savePosition(el) {
+        await fetch(`/api/processes/${el.dataset.processId}/position`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({x: parseFloat(el.style.left), y: parseFloat(el.style.top)})
+        });
+    }
+
+    async function connectProcesses(sourceId, targetId) {
+        const response = await fetch(`/api/processes/${sourceId}/connect/${targetId}`, {method: "POST"});
+        const data = await response.json();
+
+        if (!data.ok) {
+            alert(data.error || "Prozesse konnten nicht verbunden werden.");
+            return;
+        }
+
+        const target = card(targetId);
+        if (target) {
+            target.dataset.parentId = sourceId;
+            const label = target.querySelector(".process-parent-label");
+            if (label) label.textContent = "eingebunden in: " + data.source_name;
+        }
+
+        document.querySelectorAll(".process-card-map").forEach(c => c.classList.remove("selected-source"));
+        sourceProcess = null;
+        connectMode = false;
+        connectButton.classList.remove("active");
+        canvas.classList.remove("connect-mode");
+        renderLines();
+    }
+
+    connectButton.addEventListener("click", function () {
+        connectMode = !connectMode;
+        sourceProcess = null;
+        connectButton.classList.toggle("active", connectMode);
+        canvas.classList.toggle("connect-mode", connectMode);
+        document.querySelectorAll(".process-card-map").forEach(c => c.classList.remove("selected-source"));
+    });
+
+    document.querySelectorAll(".process-card-map").forEach(function (el) {
+        el.addEventListener("mousedown", function (event) {
+            const tag = event.target.tagName.toLowerCase();
+            if (tag === "a" || tag === "button" || connectMode) return;
+
+            dragging = el;
+            moved = false;
+            const r = el.getBoundingClientRect();
+            offsetX = event.clientX - r.left;
+            offsetY = event.clientY - r.top;
+            el.classList.add("dragging");
+            event.preventDefault();
+        });
+
+        el.addEventListener("click", function (event) {
+            const tag = event.target.tagName.toLowerCase();
+            if (tag === "a" || tag === "button") return;
+
+            if (connectMode) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                if (!sourceProcess) {
+                    sourceProcess = el;
+                    el.classList.add("selected-source");
+                    alert("Quellprozess gewählt: " + el.dataset.processName + "\\nJetzt Zielprozess anklicken.");
+                    return;
+                }
+
+                if (sourceProcess.dataset.processId === el.dataset.processId) {
+                    alert("Ein Prozess kann nicht mit sich selbst verbunden werden.");
+                    return;
+                }
+
+                connectProcesses(sourceProcess.dataset.processId, el.dataset.processId);
+                return;
+            }
+
+            if (!moved) window.location.href = el.dataset.url;
+        });
+    });
+
+    document.addEventListener("mousemove", function (event) {
+        if (!dragging) return;
+
+        const c = canvas.getBoundingClientRect();
+        dragging.style.left = Math.max(10, event.clientX - c.left - offsetX + canvas.scrollLeft) + "px";
+        dragging.style.top = Math.max(10, event.clientY - c.top - offsetY + canvas.scrollTop) + "px";
+        moved = true;
+        renderLines();
+    });
+
+    document.addEventListener("mouseup", function () {
+        if (!dragging) return;
+
+        const dropped = dragging;
+        dropped.classList.remove("dragging");
+        dragging = null;
+
+        if (moved) {
+            savePosition(dropped);
+            setTimeout(() => { moved = false; }, 50);
+        }
+    });
+
+    canvas.addEventListener("scroll", renderLines);
+    window.addEventListener("resize", renderLines);
+    renderLines();
+});
+</script>
+{% endblock %}

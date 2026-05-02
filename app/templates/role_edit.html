@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Rolle bearbeiten</h2>
+<form method="post" class="form-card">
+    <label>Name
+        <input name="name" value="{{ role.name or '' }}" required>
+    </label>
+    <label>Übergeordnete Rolle
+        <select name="parent_id">
+            <option value="">keine</option>
+            {% for r in roles %}
+                {% if r.id != role.id %}
+                <option value="{{ r.id }}" {% if role.parent_id == r.id %}selected{% endif %}>{{ r.name }}</option>
+                {% endif %}
+            {% endfor %}
+        </select>
+    </label>
+    <fieldset>
+        <legend>Funktionen</legend>
+        {% for f in functions %}
+            <label class="check">
+                <input type="checkbox" name="function_ids" value="{{ f.id }}" {% if f in role.functions %}checked{% endif %}>
+                {{ f.name }}
+            </label>
+        {% endfor %}
+    </fieldset>
+    <button type="submit">Speichern</button>
+</form>
+{% endblock %}

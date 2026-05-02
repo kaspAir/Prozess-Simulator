@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Person bearbeiten</h2>
+<form method="post" class="form-card">
+    <label>Name
+        <input name="name" value="{{ person.name or '' }}" required>
+    </label>
+
+    <label>Organisation
+        <select name="organization_id">
+            <option value="">keine Organisation</option>
+            {% for org in organizations %}
+                <option value="{{ org.id }}" {% if person.organization_id == org.id %}selected{% endif %}>
+                    {{ org.name }}
+                </option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>Jahresgehalt bei 100%-Anstellung
+        <input name="annual_salary" type="number" step="1000" value="{{ person.annual_salary or 0 }}" required>
+    </label>
+
+    <label>Anstellung / FTE
+        <input name="fte" type="number" step="0.05" min="0" max="2" value="{{ person.fte or 1.0 }}" required>
+    </label>
+
+    <label class="check">
+        <input type="checkbox" name="active" value="1" {% if person.active %}checked{% endif %}>
+        aktiv
+    </label>
+
+    <fieldset>
+        <legend>Rollen</legend>
+        {% for role in roles %}
+            <label class="check">
+                <input type="checkbox" name="role_ids" value="{{ role.id }}" {% if role in person.roles %}checked{% endif %}>
+                {{ role.name }}
+            </label>
+        {% endfor %}
+    </fieldset>
+
+    <fieldset>
+        <legend>Funktionen</legend>
+        {% for function in functions %}
+            <label class="check">
+                <input type="checkbox" name="function_ids" value="{{ function.id }}" {% if function in person.functions %}checked{% endif %}>
+                {{ function.name }}
+            </label>
+        {% endfor %}
+    </fieldset>
+
+    <button type="submit">Speichern</button>
+</form>
+{% endblock %}

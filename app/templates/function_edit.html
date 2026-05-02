@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Funktion bearbeiten</h2>
+<form method="post" class="form-card">
+    <label>Name
+        <input name="name" value="{{ function.name or '' }}" required>
+    </label>
+    <label>Beschreibung
+        <textarea name="description">{{ function.description or '' }}</textarea>
+    </label>
+    <button type="submit">Speichern</button>
+</form>
+{% endblock %}

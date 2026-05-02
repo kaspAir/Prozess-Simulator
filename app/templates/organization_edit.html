@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Organisation bearbeiten</h2>
+
+<form method="post" class="form-card">
+    <label>Name
+        <input name="name" value="{{ organization.name or '' }}" required>
+    </label>
+
+    <label>Beschreibung
+        <textarea name="description">{{ organization.description or '' }}</textarea>
+    </label>
+
+    <button type="submit">Speichern</button>
+</form>
+{% endblock %}

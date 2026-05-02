@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+    <div class="section-title">
+        <h2>Prozesse</h2>
+        <div>
+            <a class="button" href="{{ url_for('process_map') }}">Prozesslandkarte</a>
+            <a class="button" href="{{ url_for('process_edit') }}" target="_blank">Prozess hinzufügen</a>
+        </div>
+    </div>
+
+    <table>
+        <tr><th>Prozess</th><th>Typ</th><th>Eingebunden in</th><th>Aktion</th></tr>
+        {% for process in processes %}
+        <tr>
+            <td>{{ process.name }}</td>
+            <td>{% if process.parent_process_id %}Folge-/Subprozess{% else %}Hauptprozess{% endif %}</td>
+            <td>{{ process.parent.name if process.parent else "" }}</td>
+            <td class="process-actions">
+                <a href="{{ url_for('process_graph', process_id=process.id) }}">öffnen</a>
+                <a href="{{ url_for('process_edit', process_id=process.id) }}" target="_blank">bearbeiten</a>
+
+                {% if process.parent_process_id %}
+                <form method="post" action="{{ url_for('process_detach', process_id=process.id) }}" onsubmit="return confirm('Verbindung zum übergeordneten Prozess lösen?');">
+                    <button class="link-warning" type="submit">Verbindung lösen</button>
+                </form>
+                {% endif %}
+
+                <form method="post" action="{{ url_for('process_delete', process_id=process.id) }}" onsubmit="return confirm('Prozess wirklich löschen? Die enthaltenen Nodes und Flows werden gelöscht. Untergeordnete Prozesse bleiben erhalten und werden Hauptprozesse.');">
+                    <button class="link-danger" type="submit">löschen</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</section>
+{% endblock %}

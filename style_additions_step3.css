@@ -1,0 +1,40 @@
+
+/* BPMN-Step-3 Editor-Ergänzungen */
+
+.bpmn-node-wrap {
+    position: absolute;
+    z-index: 3;
+}
+
+.bpmn-node-wrap .bpmn-node {
+    position: relative;
+    left: auto;
+    top: auto;
+}
+
+.mini-edit {
+    position: absolute;
+    right: -10px;
+    top: -10px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #315bdc;
+    color: white;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    box-shadow: 0 4px 12px rgba(24,35,63,.25);
+}
+
+.mini-edit:hover {
+    transform: scale(1.08);
+}
+
+.section-title > div {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+}

@@ -1,0 +1,560 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+    <div class="section-title">
+        <h2>{{ process.name }}</h2>
+        <div>
+            <a class="button" href="{{ url_for('node_edit', process_id=process.id) }}" target="_blank">Node hinzufügen</a>
+            <button type="button" class="button" id="connect-mode">Verbindung zeichnen</button>
+            <a class="button" href="{{ url_for('edge_edit', process_id=process.id) }}" target="_blank">Flow per Formular</a>
+            <a class="button" href="{{ url_for('process_edit', parent_id=process.id) }}" target="_blank">Subprozess erstellen</a>
+            <a class="button" href="{{ url_for('process_edit', process_id=process.id) }}" target="_blank">Prozess bearbeiten</a>
+            {% if process.parent %}
+                <a class="button" href="{{ url_for('process_graph', process_id=process.parent.id) }}">Zurück</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="process-cost-summary">
+        <strong>Prozessaufwand:</strong> {{ "%.0f"|format(total_effort_minutes or 0) }} Min.
+        · <strong>Prozesskosten:</strong> CHF {{ "%.2f"|format(total_process_cost or 0) }}
+        {% if expected_effort_minutes is defined %}
+            · <strong>Erwarteter Aufwand:</strong> {{ "%.1f"|format(expected_effort_minutes or 0) }} Min.
+        {% endif %}
+        {% if expected_process_cost is defined %}
+            · <strong>Erwartete Kosten:</strong> CHF {{ "%.2f"|format(expected_process_cost or 0) }}
+        {% endif %}
+        {% if process.owner_org_unit %}
+            · <strong>Owner:</strong> {{ process.owner_org_unit.organization.name }} / {{ process.owner_org_unit.name }}
+        {% else %}
+            · <strong>Owner:</strong> <span class="warning-text">kein Owner gesetzt</span>
+        {% endif %}
+        {% if bottleneck_node %}
+            · <strong>Engpass:</strong> {{ bottleneck_node.name }} ({{ "%.0f"|format(bottleneck_capacity) }} Fälle/Jahr)
+        {% endif %}
+    </div>
+
+    {% if xor_warnings is defined and xor_warnings %}
+        <div class="xor-warning-box">
+            {% for node_id, warning in xor_warnings.items() %}
+                <div>{{ warning.message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <p class="small">
+        Verbindung: «Verbindung zeichnen» klicken, dann Quell-Node und Ziel-Node anklicken.
+        Bei XOR mit einem Ausgang gilt automatisch 100%; bei mehreren Ausgängen Prozentwerte auf den Flows erfassen.
+    </p>
+
+    <div class="bpmn-canvas" id="bpmn-canvas" data-process-id="{{ process.id }}">
+        <svg class="bpmn-svg" id="bpmn-svg"></svg>
+
+        {% for node in nodes %}
+            <div class="bpmn-node-wrap"
+                 data-node-id="{{ node.id }}"
+                 data-node-name="{{ node.name }}"
+                 data-node-type="{{ node.type }}"
+                 data-outgoing-count="{{ node.outgoing_edges|length }}"
+                 data-edit-url="{{ url_for('node_edit', process_id=process.id, node_id=node.id) }}"
+                 data-subprocess-url="{% if node.type == 'subprocess' and node.subprocess_id %}{{ url_for('process_graph', process_id=node.subprocess_id) }}{% endif %}"
+                 style="left: {{ node.x or (80 + loop.index0 * 210) }}px; top: {{ node.y or 160 }}px;">
+
+                <div class="bpmn-node bpmn-{{ node.type }} {% if node_function_warnings is defined and node_function_warnings.get(node.id) %}node-has-warning{% endif %}">
+                    {% if node.type == "xor" %}
+                        <div class="diamond-label">{{ node.name }}</div>
+
+                        {% set outgoing = node.outgoing_edges|list %}
+                        {% if outgoing|length == 2 %}
+                            {% set yes_edge = outgoing[0] %}
+                            {% set no_edge = outgoing[1] %}
+                            <div class="xor-split-panel" data-xor-id="{{ node.id }}">
+                                <label>Ja %
+                                    <input class="xor-yes-input"
+                                           type="number"
+                                           min="0"
+                                           max="100"
+                                           step="0.1"
+                                           value="{{ yes_edge.probability_percent if yes_edge.probability_percent is not none else 50 }}">
+                                </label>
+                                <span>Nein: <strong class="xor-no-value">{{ "%.1f"|format(no_edge.probability_percent if no_edge.probability_percent is not none else 50) }}</strong>%</span>
+                                <button type="button" class="xor-save-button">Speichern</button>
+                            </div>
+                        {% elif outgoing|length == 1 %}
+                            <div class="xor-split-panel xor-info">1 Ausgang: 100%</div>
+                        {% elif outgoing|length > 2 %}
+                            <div class="xor-split-panel xor-error">Zu viele Ausgänge. Erlaubt: Ja/Nein.</div>
+                        {% endif %}
+                    {% else %}
+                        <strong>{{ node.name }}</strong>
+
+                        {% if node.effort_minutes %}
+                            <span>{{ "%.0f"|format(node.effort_minutes) }} Min.</span>
+                        {% endif %}
+
+                        {% if node.type == "task" %}
+                            <span class="cost-pill">CHF {{ "%.2f"|format(node_costs.get(node.id, 0)) }}</span>
+
+                            {% if node_capacities.get(node.id, 0) %}
+                                <span class="small">{{ "%.0f"|format(node_capacities.get(node.id, 0)) }} Fälle/Jahr</span>
+                            {% endif %}
+                        {% endif %}
+
+                        {% if node.assigned_positions %}
+                            <div class="node-detail-block">
+                                <span class="node-detail-title">Ausführung</span>
+                                {% for position in node.assigned_positions %}
+                                    {% set validation = none %}
+                                    {% if node_function_validations is defined and node.id in node_function_validations %}
+                                        {% for item in node_function_validations[node.id] %}
+                                            {% if item.position.id == position.id %}
+                                                {% set validation = item %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endif %}
+
+                                    <span class="{% if validation and not validation.ok %}person-warning{% else %}person-ok{% endif %}">
+                                        {{ position.name }}
+                                        {% if position.person %}
+                                            / {{ position.person.name }}
+                                        {% else %}
+                                            / unbesetzt
+                                        {% endif %}
+
+                                        {% if validation and not validation.ok %}
+                                            · fehlt:
+                                            {% for f in validation.missing_functions %}
+                                                {{ f.name }}{% if not loop.last %}, {% endif %}
+                                            {% endfor %}
+                                        {% endif %}
+                                    </span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            {% if node.type == "task" %}
+                                <span class="person-warning">keine Stelle zugeordnet</span>
+                            {% endif %}
+                        {% endif %}
+
+                        {% if node.required_functions %}
+                            <div class="node-detail-block">
+                                <span class="node-detail-title">Benötigt</span>
+                                <span class="small">
+                                    {% for function in node.required_functions %}
+                                        {{ function.name }}{% if not loop.last %}, {% endif %}
+                                    {% endfor %}
+                                </span>
+                            </div>
+                        {% endif %}
+
+                        {% if node_function_warnings is defined and node_function_warnings.get(node.id) %}
+                            <span class="function-warning-badge">Funktionskonflikt</span>
+                        {% endif %}
+
+                        {% if node.type == "subprocess" %}
+                            <span class="small">Subprozess öffnen</span>
+                        {% endif %}
+                    {% endif %}
+                </div>
+
+                <a class="mini-edit" href="{{ url_for('node_edit', process_id=process.id, node_id=node.id) }}" target="_blank">✎</a>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section>
+    <div class="section-title">
+        <h2>Sequenzflüsse</h2>
+        <a class="button" href="{{ url_for('edge_edit', process_id=process.id) }}" target="_blank">Flow hinzufügen</a>
+    </div>
+    <table id="edge-table">
+        <tr><th>Von</th><th>Bedingung</th><th>Wahrscheinlichkeit</th><th>Nach</th><th>Aktion</th></tr>
+        {% for edge in edges %}
+            <tr data-edge-id="{{ edge.id }}"
+                data-source="{{ edge.source_node_id }}"
+                data-target="{{ edge.target_node_id }}"
+                data-condition="{{ edge.condition or '' }}"
+                data-probability="{{ edge.probability_percent if edge.probability_percent is not none else '' }}">
+                <td>{{ edge.source_node.name }}</td>
+                <td>{{ edge.condition or "" }}</td>
+                <td>{% if edge.probability_percent is not none %}{{ "%.1f"|format(edge.probability_percent) }}%{% endif %}</td>
+                <td>{{ edge.target_node.name }}</td>
+                <td class="edge-actions">
+                    <a href="{{ url_for('edge_edit', process_id=process.id, edge_id=edge.id) }}" target="_blank">bearbeiten</a>
+                    <button class="link-danger edge-delete-button" type="button" data-edge-id="{{ edge.id }}">löschen</button>
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
+</section>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const canvas = document.getElementById("bpmn-canvas");
+    const svg = document.getElementById("bpmn-svg");
+    const processId = canvas.dataset.processId;
+    const connectButton = document.getElementById("connect-mode");
+
+    let connectMode = false;
+    let sourceNode = null;
+    let dragging = null;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+    let moved = false;
+
+    function markerSvg() {
+        return `
+            <defs>
+                <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                    <path d="M0,0 L0,6 L9,3 z"></path>
+                </marker>
+            </defs>`;
+    }
+
+    function edgeRows() {
+        return document.querySelectorAll("tr[data-source]");
+    }
+
+    function nodeWrap(id) {
+        return document.querySelector(`.bpmn-node-wrap[data-node-id="${id}"]`);
+    }
+
+    function nodeRect(wrap) {
+        const c = canvas.getBoundingClientRect();
+        const r = wrap.querySelector(".bpmn-node").getBoundingClientRect();
+
+        return {
+            left: r.left - c.left + canvas.scrollLeft,
+            top: r.top - c.top + canvas.scrollTop,
+            right: r.right - c.left + canvas.scrollLeft,
+            bottom: r.bottom - c.top + canvas.scrollTop,
+            width: r.width,
+            height: r.height,
+            cx: r.left - c.left + canvas.scrollLeft + r.width / 2,
+            cy: r.top - c.top + canvas.scrollTop + r.height / 2
+        };
+    }
+
+    function anchorPair(source, target) {
+        const s = nodeRect(source);
+        const t = nodeRect(target);
+        const dx = t.cx - s.cx;
+        const dy = t.cy - s.cy;
+
+        if (Math.abs(dx) >= Math.abs(dy)) {
+            if (dx >= 0) {
+                return {s: {x: s.right, y: s.cy}, t: {x: t.left, y: t.cy}, orientation: "horizontal"};
+            }
+            return {s: {x: s.left, y: s.cy}, t: {x: t.right, y: t.cy}, orientation: "horizontal"};
+        }
+
+        if (dy >= 0) {
+            return {s: {x: s.cx, y: s.bottom}, t: {x: t.cx, y: t.top}, orientation: "vertical"};
+        }
+
+        return {s: {x: s.cx, y: s.top}, t: {x: t.cx, y: t.bottom}, orientation: "vertical"};
+    }
+
+    function pathFor(points) {
+        return points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+    }
+
+    function drawLine(edgeRow) {
+        const source = nodeWrap(edgeRow.dataset.source);
+        const target = nodeWrap(edgeRow.dataset.target);
+        if (!source || !target) return;
+
+        const pair = anchorPair(source, target);
+        const s = pair.s;
+        const t = pair.t;
+
+        let points;
+
+        if (pair.orientation === "horizontal") {
+            const midX = (s.x + t.x) / 2;
+            points = [s, {x: midX, y: s.y}, {x: midX, y: t.y}, t];
+        } else {
+            const midY = (s.y + t.y) / 2;
+            points = [s, {x: s.x, y: midY}, {x: t.x, y: midY}, t];
+        }
+
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", pathFor(points));
+        path.setAttribute("class", "bpmn-edge");
+        path.setAttribute("marker-end", "url(#arrow)");
+        svg.appendChild(path);
+
+        const labelSegmentStart = points[1] || points[0];
+        const labelSegmentEnd = points[2] || points[points.length - 1];
+        const labelX = (labelSegmentStart.x + labelSegmentEnd.x) / 2;
+        const labelY = (labelSegmentStart.y + labelSegmentEnd.y) / 2 - 8;
+
+        if (edgeRow.dataset.condition || edgeRow.dataset.probability) {
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("x", labelX);
+            text.setAttribute("y", labelY);
+            text.setAttribute("class", "bpmn-condition");
+            text.setAttribute("text-anchor", "middle");
+
+            let labelText = edgeRow.dataset.condition || "";
+            if (edgeRow.dataset.probability) {
+                labelText = labelText ? `${labelText} (${edgeRow.dataset.probability}%)` : `${edgeRow.dataset.probability}%`;
+            }
+
+            text.textContent = labelText;
+            svg.appendChild(text);
+        }
+
+        const deleteText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        deleteText.setAttribute("x", labelX + 14);
+        deleteText.setAttribute("y", labelY - 18);
+        deleteText.setAttribute("class", "bpmn-edge-delete");
+        deleteText.setAttribute("data-edge-id", edgeRow.dataset.edgeId);
+        deleteText.textContent = "×";
+        svg.appendChild(deleteText);
+    }
+
+    function renderEdges() {
+        svg.innerHTML = markerSvg();
+        edgeRows().forEach(drawLine);
+
+        document.querySelectorAll(".bpmn-edge-delete").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                deleteEdge(btn.dataset.edgeId);
+            });
+        });
+    }
+
+    async function savePosition(wrap) {
+        await fetch(`/api/nodes/${wrap.dataset.nodeId}/position`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                x: parseFloat(wrap.style.left),
+                y: parseFloat(wrap.style.top)
+            })
+        });
+    }
+
+    async function createEdge(sourceId, targetId, condition, probabilityPercent) {
+        const response = await fetch(`/api/process/${processId}/edges`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                source_node_id: sourceId,
+                target_node_id: targetId,
+                condition: condition,
+                probability_percent: probabilityPercent
+            })
+        });
+
+        const data = await response.json();
+        if (!data.ok) {
+            alert(data.error || "Verbindung konnte nicht erstellt werden.");
+            return;
+        }
+        window.location.reload();
+    }
+
+    async function deleteEdge(edgeId) {
+        if (!confirm("Diesen Flow wirklich löschen?")) return;
+
+        const response = await fetch(`/api/edges/${edgeId}`, {method: "DELETE"});
+        const data = await response.json();
+
+        if (!data.ok) {
+            alert("Flow konnte nicht gelöscht werden.");
+            return;
+        }
+
+        const row = document.querySelector(`tr[data-edge-id="${edgeId}"]`);
+        if (row) row.remove();
+        renderEdges();
+    }
+
+    document.querySelectorAll(".edge-delete-button").forEach(function (button) {
+        button.addEventListener("click", function () {
+            deleteEdge(button.dataset.edgeId);
+        });
+    });
+
+    connectButton.addEventListener("click", function () {
+        connectMode = !connectMode;
+        sourceNode = null;
+        connectButton.classList.toggle("active", connectMode);
+        canvas.classList.toggle("connect-mode", connectMode);
+        document.querySelectorAll(".bpmn-node-wrap").forEach(n => n.classList.remove("selected-source"));
+    });
+
+    document.querySelectorAll(".bpmn-node-wrap").forEach(function (wrap) {
+        wrap.addEventListener("mousedown", function (event) {
+            if (event.target.classList.contains("mini-edit")) return;
+            if (connectMode) return;
+
+            dragging = wrap;
+            moved = false;
+
+            const wRect = wrap.getBoundingClientRect();
+            dragOffsetX = event.clientX - wRect.left;
+            dragOffsetY = event.clientY - wRect.top;
+
+            wrap.classList.add("dragging");
+            event.preventDefault();
+        });
+
+        wrap.addEventListener("click", function (event) {
+            if (moved) {
+                event.preventDefault();
+                return;
+            }
+
+            if (connectMode) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                if (!sourceNode) {
+                    sourceNode = wrap;
+                    wrap.classList.add("selected-source");
+                    alert("Quelle gewählt: " + wrap.dataset.nodeName + "\\nJetzt Ziel-Node anklicken.");
+                    return;
+                }
+
+                const sourceId = sourceNode.dataset.nodeId;
+                const targetId = wrap.dataset.nodeId;
+
+                if (sourceId === targetId) {
+                    alert("Quelle und Ziel dürfen nicht identisch sein.");
+                    return;
+                }
+
+                const condition = prompt("Bedingung für diesen Flow, z.B. ja/nein/nach Abklärung:", "");
+
+                let probabilityPercent = "";
+                const sourceType = sourceNode.dataset.nodeType;
+                const outgoingCount = parseInt(sourceNode.dataset.outgoingCount || "0", 10);
+
+                if (sourceType === "xor" && outgoingCount >= 1) {
+                    probabilityPercent = prompt(
+                        "Wahrscheinlichkeit für diesen XOR-Ausgang in Prozent.\\nDie Summe aller ausgehenden XOR-Flows muss 100% ergeben.",
+                        ""
+                    );
+                }
+
+                createEdge(sourceId, targetId, condition, probabilityPercent);
+
+                connectMode = false;
+                sourceNode.classList.remove("selected-source");
+                sourceNode = null;
+                connectButton.classList.remove("active");
+                canvas.classList.remove("connect-mode");
+                return;
+            }
+
+            if (wrap.dataset.nodeType === "subprocess" && wrap.dataset.subprocessUrl) {
+                window.location.href = wrap.dataset.subprocessUrl;
+            }
+        });
+
+        wrap.addEventListener("dblclick", function () {
+            window.open(wrap.dataset.editUrl, "_blank");
+        });
+    });
+
+    document.addEventListener("mousemove", function (event) {
+        if (!dragging) return;
+
+        const cRect = canvas.getBoundingClientRect();
+        let x = event.clientX - cRect.left - dragOffsetX + canvas.scrollLeft;
+        let y = event.clientY - cRect.top - dragOffsetY + canvas.scrollTop;
+
+        x = Math.max(10, x);
+        y = Math.max(10, y);
+
+        dragging.style.left = x + "px";
+        dragging.style.top = y + "px";
+        moved = true;
+        renderEdges();
+    });
+
+    document.addEventListener("mouseup", function () {
+        if (!dragging) return;
+
+        const dropped = dragging;
+        dropped.classList.remove("dragging");
+        dragging = null;
+
+        if (moved) {
+            savePosition(dropped);
+            setTimeout(() => { moved = false; }, 50);
+        }
+    });
+
+    document.querySelectorAll(".xor-split-panel").forEach(function (panel) {
+        const input = panel.querySelector(".xor-yes-input");
+        const noValue = panel.querySelector(".xor-no-value");
+        const button = panel.querySelector(".xor-save-button");
+
+        if (!input || !button || !noValue) return;
+
+        input.addEventListener("click", function (event) {
+            event.stopPropagation();
+        });
+
+        input.addEventListener("mousedown", function (event) {
+            event.stopPropagation();
+        });
+
+        button.addEventListener("click", function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        });
+
+        input.addEventListener("input", function () {
+            let yes = parseFloat(input.value || "0");
+            if (Number.isNaN(yes)) yes = 0;
+            if (yes < 0) yes = 0;
+            if (yes > 100) yes = 100;
+            noValue.textContent = (100 - yes).toFixed(1);
+        });
+
+        button.addEventListener("mouseup", async function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const nodeId = panel.dataset.xorId;
+            let yes = parseFloat(input.value || "0");
+
+            if (Number.isNaN(yes)) {
+                alert("Bitte eine gültige Prozentzahl eingeben.");
+                return;
+            }
+
+            if (yes < 0 || yes > 100) {
+                alert("Ja-Prozent muss zwischen 0 und 100 liegen.");
+                return;
+            }
+
+            const response = await fetch(`/api/xor/${nodeId}/split`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({yes_percent: yes})
+            });
+
+            const data = await response.json();
+
+            if (!data.ok) {
+                alert(data.error || "XOR-Aufteilung konnte nicht gespeichert werden.");
+                return;
+            }
+
+            window.location.reload();
+        });
+    });
+
+    canvas.addEventListener("scroll", renderEdges);
+    renderEdges();
+    window.addEventListener("resize", renderEdges);
+});
+</script>
+{% endblock %}

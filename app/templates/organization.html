@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% macro positions_table(unit) %}
+    {% set positions = unit.children | selectattr("unit_type", "equalto", "Stelle") | list %}
+    {% if positions %}
+        <details class="positions-details">
+            <summary>{{ positions|length }} Stelle{% if positions|length != 1 %}n{% endif %} anzeigen</summary>
+            <table class="positions-table">
+                <tr>
+                    <th>Stelle</th>
+                    <th>Person</th>
+                    <th>Anstellung</th>
+                    <th>Jahresgehalt 100%</th>
+                    <th>Effektive Kosten</th>
+                    <th>Rollen</th>
+                    <th>Funktionen</th>
+                    <th></th>
+                </tr>
+                {% for position in positions|sort(attribute='sort_order') %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('org_unit_edit', organization_id=position.organization_id, unit_id=position.id) }}" target="_blank">
+                                {{ position.name }}
+                            </a>
+                        </td>
+                        <td>
+                            {% if position.person %}
+                                <a href="{{ url_for('person_edit', person_id=position.person.id) }}" target="_blank">{{ position.person.name }}</a>
+                            {% else %}
+                                <em>unbesetzt</em>
+                            {% endif %}
+                        </td>
+                        <td>{% if position.person %}{{ "%.0f"|format(position.person.fte * 100) }}%{% endif %}</td>
+                        <td>{% if position.person %}CHF {{ "%.0f"|format(position.person.annual_salary) }}{% endif %}</td>
+                        <td>{% if position.person %}CHF {{ "%.0f"|format(position.person.annual_salary * position.person.fte) }}{% endif %}</td>
+                        <td>
+                            {% for role in position.roles %}
+                                {{ role.name }}{% if not loop.last %}, {% endif %}
+                            {% else %}
+                                —
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% if position.person %}
+                                {% for function in position.person.functions %}
+                                    {{ function.name }}{% if not loop.last %}, {% endif %}
+                                {% else %}
+                                    —
+                                {% endfor %}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('org_unit_edit', organization_id=position.organization_id, unit_id=position.id) }}" target="_blank">bearbeiten</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </table>
+        </details>
+    {% endif %}
+{% endmacro %}
+
+{% macro unit_tree(unit) %}
+{% if unit.unit_type != "Stelle" %}
+<li>
+    <div class="org-card">
+        <div class="org-card-header">
+            <strong>{{ unit.name }}</strong>
+            <span>{{ unit.unit_type }}</span>
+        </div>
+
+        {% if unit.description %}
+            <p class="small">{{ unit.description }}</p>
+        {% endif %}
+
+        <div class="small">
+            <strong>Rollen:</strong>
+            {% for role in unit.roles %}
+                <a href="{{ url_for('role_edit', role_id=role.id) }}" target="_blank">{{ role.name }}</a>{% if not loop.last %}, {% endif %}
+            {% else %}
+                keine
+            {% endfor %}
+        </div>
+
+        {{ positions_table(unit) }}
+
+        <div class="org-card-actions">
+            <a href="{{ url_for('org_unit_edit', organization_id=unit.organization_id, unit_id=unit.id) }}" target="_blank">bearbeiten</a>
+            <a href="{{ url_for('org_unit_edit', organization_id=unit.organization_id) }}?parent_id={{ unit.id }}" target="_blank">Einheit unterstellen</a>
+            <a href="{{ url_for('org_unit_edit', organization_id=unit.organization_id) }}?parent_id={{ unit.id }}&unit_type=Stelle" target="_blank">Stelle hinzufügen</a>
+        </div>
+    </div>
+
+    {% set non_position_children = unit.children | rejectattr("unit_type", "equalto", "Stelle") | list %}
+    {% if non_position_children %}
+        <ul>
+        {% for child in non_position_children|sort(attribute='sort_order') %}
+            {{ unit_tree(child) }}
+        {% endfor %}
+        </ul>
+    {% endif %}
+</li>
+{% endif %}
+{% endmacro %}
+
+<section>
+    <div class="section-title">
+        <h2>Aufbauorganisation</h2>
+        <div>
+            <a class="button" href="{{ url_for('organization_edit') }}" target="_blank">Organisation hinzufügen</a>
+            {% if selected_org %}
+                <a class="button" href="{{ url_for('organization_edit', organization_id=selected_org.id) }}" target="_blank">Organisation bearbeiten</a>
+                <a class="button" href="{{ url_for('org_unit_edit', organization_id=selected_org.id) }}" target="_blank">Einheit hinzufügen</a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if organizations %}
+        <form method="get" class="inline-form">
+            <label>Organisation
+                <select name="org_id" onchange="this.form.submit()">
+                    {% for org in organizations %}
+                        <option value="{{ org.id }}" {% if selected_org and selected_org.id == org.id %}selected{% endif %}>
+                            {{ org.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </label>
+        </form>
+    {% endif %}
+
+    {% if selected_org %}
+        <ul class="org-chart">
+            {% for unit in root_units %}
+                {{ unit_tree(unit) }}
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Noch keine Organisation vorhanden.</p>
+    {% endif %}
+</section>
+
+<div class="grid">
+    <section>
+        <div class="section-title">
+            <h2>Rollen</h2>
+            <a class="button" href="{{ url_for('role_edit') }}" target="_blank">Rolle hinzufügen</a>
+        </div>
+        <table>
+            <tr><th>Rolle</th><th>Funktionen</th></tr>
+            {% for r in roles %}
+            <tr>
+                <td><a href="{{ url_for('role_edit', role_id=r.id) }}" target="_blank">{{ r.name }}</a></td>
+                <td>{% for f in r.functions %}{{ f.name }}{% if not loop.last %}, {% endif %}{% else %}keine{% endfor %}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </section>
+
+    <section>
+        <div class="section-title">
+            <h2>Funktionen</h2>
+            <a class="button" href="{{ url_for('function_edit') }}" target="_blank">Funktion hinzufügen</a>
+        </div>
+        <table>
+            {% for f in functions %}
+            <tr>
+                <td><a href="{{ url_for('function_edit', function_id=f.id) }}" target="_blank">{{ f.name }}</a></td>
+                <td>{{ f.description or "" }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </section>
+</div>
+
+<section>
+    <div class="section-title">
+        <h2>Personen{% if selected_org %} – {{ selected_org.name }}{% endif %}</h2>
+        <a class="button" href="{{ url_for('person_edit') }}" target="_blank">Person hinzufügen</a>
+    </div>
+    <table>
+        <tr><th>Name</th><th>Anstellung</th><th>Jahresgehalt 100%</th><th>Effektive Kosten</th><th>Stellen</th><th>Rollen</th><th>Funktionen</th></tr>
+        {% for p in persons %}
+        <tr class="{% if not p.active %}inactive{% endif %}">
+            <td><a href="{{ url_for('person_edit', person_id=p.id) }}" target="_blank">{{ p.name }}</a></td>
+            <td>{{ "%.0f"|format(p.fte * 100) }}%</td>
+            <td>CHF {{ "%.0f"|format(p.annual_salary) }}</td>
+            <td>CHF {{ "%.0f"|format(p.annual_salary * p.fte) }}</td>
+            <td>{% for pos in p.positions %}{{ pos.name }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+            <td>{% for r in p.roles %}{{ r.name }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+            <td>{% for f in p.functions %}{{ f.name }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</section>
+
+{% endblock %}

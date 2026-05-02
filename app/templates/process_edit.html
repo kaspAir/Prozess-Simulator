@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{% if process %}Prozess bearbeiten{% else %}Prozess erstellen{% endif %}</h2>
+
+<form method="post" class="form-card">
+    <label>Name
+        <input name="name" value="{{ process.name if process else '' }}" required>
+    </label>
+
+    <label>Process Owner / verantwortliche Organisationseinheit
+        <select name="owner_org_unit_id">
+            <option value="">kein Process Owner</option>
+            {% for unit in owner_units %}
+                <option value="{{ unit.id }}" {% if process and process.owner_org_unit_id == unit.id %}selected{% endif %}>
+                    {{ unit.organization.name }} – {{ unit.name }} ({{ unit.unit_type }})
+                </option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>In Prozesslandkarte eingebunden in
+        <select name="parent_process_id">
+            <option value="">kein übergeordneter Prozess / Hauptprozess</option>
+            {% for p in processes %}
+                {% if not process or p.id != process.id %}
+                    <option value="{{ p.id }}"
+                        {% if (process and process.parent_process_id == p.id) or (parent and parent.id == p.id) %}selected{% endif %}>
+                        {{ p.name }}
+                    </option>
+                {% endif %}
+            {% endfor %}
+        </select>
+    </label>
+
+    <button type="submit">Speichern</button>
+</form>
+
+{% if process %}
+    <p>
+        <a class="button" href="{{ url_for('process_graph', process_id=process.id) }}">Prozess öffnen</a>
+        <a class="button" href="{{ url_for('process_map') }}">Zur Prozesslandkarte</a>
+    </p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Sequenzfluss bearbeiten – {{ process.name }}</h2>
+
+<form method="post" class="form-card">
+    <label>Von
+        <select name="source_node_id" required>
+            {% for node in nodes %}
+                <option value="{{ node.id }}" {% if edge.source_node_id == node.id %}selected{% endif %}>
+                    {{ node.name }} ({{ node.type }})
+                </option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>Nach
+        <select name="target_node_id" required>
+            {% for node in nodes %}
+                <option value="{{ node.id }}" {% if edge.target_node_id == node.id %}selected{% endif %}>
+                    {{ node.name }} ({{ node.type }})
+                </option>
+            {% endfor %}
+        </select>
+    </label>
+
+    <label>Bedingung / Label
+        <input name="condition" value="{{ edge.condition or '' }}" placeholder="Bei XOR automatisch Ja/Nein">
+    </label>
+
+    <label>Wahrscheinlichkeit in Prozent
+        <input name="probability_percent"
+               type="number"
+               step="0.1"
+               min="0"
+               max="100"
+               value="{{ edge.probability_percent if edge.probability_percent is not none else '' }}">
+    </label>
+
+    <p class="small">
+        Bei XOR-Entscheidungen mit zwei Ausgängen werden die Labels als «Ja» und «Nein» interpretiert.
+        Am einfachsten ist die Bearbeitung direkt im Prozessdiagramm bei der XOR-Raute.
+    </p>
+
+    <button type="submit">Speichern</button>
+</form>
+
+{% if edge.id %}
+<form method="post" action="{{ url_for('edge_delete', process_id=process.id, edge_id=edge.id) }}" onsubmit="return confirm('Flow wirklich löschen?');">
+    <button class="danger" type="submit">Flow löschen</button>
+</form>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+    <div class="section-title">
+        <h2>End-to-End Simulation</h2>
+    </div>
+
+    <form method="get" class="form-card simulation-form">
+        <label>Startprozess / Prozesslandkarte
+            <select name="process_id">
+                {% for process in processes %}
+                    <option value="{{ process.id }}" {% if selected_process and selected_process.id == process.id %}selected{% endif %}>
+                        {{ process.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label>Anzahl Strafbefehle pro Jahr
+            <input type="number" step="1" min="0" name="case_count" value="{{ "%.0f"|format(case_count or 0) }}">
+        </label>
+
+        <button type="submit">Berechnen</button>
+    </form>
+</section>
+
+{% if result %}
+<section>
+    <div class="simulation-summary {% if result.feasible %}simulation-ok{% else %}simulation-not-ok{% endif %}">
+        <strong>{{ "%.0f"|format(result.case_count) }} Strafbefehle/Jahr</strong>
+        · Gesamtaufwand: {{ "%.1f"|format(result.total_expected_hours) }} h
+        · Zugeordnet: {{ "%.1f"|format(result.assigned_hours_total) }} h
+        · Nicht zugeordnet: {{ "%.1f"|format(result.unassigned_hours_total) }} h
+        · Personalkapazität: {{ "%.1f"|format(result.total_capacity_hours) }} h
+        · Stellenprozente: {{ "%.1f"|format(result.total_fte_percent) }}%
+        · Auslastung zugeordneter Arbeit: {{ "%.1f"|format(result.assigned_utilization * 100) }}%
+        · Ergebnis:
+        {% if result.feasible %}
+            <strong>machbar</strong>
+        {% else %}
+            <strong>nicht machbar</strong>
+        {% endif %}
+    </div>
+
+    <p class="small">
+        Annahme: Eine 100%-Stelle entspricht {{ result.annual_working_hours_per_fte }} Arbeitsstunden/Jahr.
+        Die Machbarkeit wird aus den tatsächlich zugeordneten Personen berechnet. Arbeit ohne zugeordnete Person wird separat ausgewiesen.
+    </p>
+
+    {% if result.has_unassigned_work %}
+        <div class="unassigned-warning">
+            Es gibt {{ "%.1f"|format(result.unassigned_hours_total) }} Stunden Arbeit ohne zugeordnete Person/Stelle.
+            Diese Stunden erklären, warum der Gesamtaufwand höher sein kann, obwohl keine einzelne Person über 100% ausgelastet ist.
+        </div>
+    {% endif %}
+</section>
+
+<section>
+    <div class="section-title">
+        <h2>Personenauslastung</h2>
+    </div>
+
+    <table>
+        <tr>
+            <th>Person</th>
+            <th>FTE</th>
+            <th>Belastung</th>
+            <th>Kapazität</th>
+            <th>Auslastung</th>
+            <th>Status</th>
+        </tr>
+        {% for row in result.person_rows %}
+        <tr class="{% if not row.ok %}capacity-warning-row{% endif %}">
+            <td>{{ row.person.name }}</td>
+            <td>{{ "%.1f"|format(row.person.fte * 100) }}%</td>
+            <td>{{ "%.1f"|format(row.hours) }} h</td>
+            <td>{{ "%.1f"|format(row.capacity_hours) }} h</td>
+            <td>{{ "%.1f"|format(row.utilization * 100) }}%</td>
+            <td>{% if row.ok %}ok{% else %}<strong>überlastet</strong>{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</section>
+
+{% if result.unassigned_activity_rows %}
+<section>
+    <div class="section-title">
+        <h2>Nicht zugeordnete Arbeit</h2>
+    </div>
+
+    <table>
+        <tr>
+            <th>Prozess</th>
+            <th>Aktivität</th>
+            <th>Pfad-Faktor</th>
+            <th>Erwartete Fälle</th>
+            <th>Min./Fall</th>
+            <th>Nicht zugeordnet</th>
+            <th>Hinweis</th>
+        </tr>
+        {% for row in result.unassigned_activity_rows %}
+        <tr class="capacity-warning-row">
+            <td>{{ row.process.name }}</td>
+            <td>{{ row.node.name }}</td>
+            <td>{{ "%.1f"|format(row.visit_factor * 100) }}%</td>
+            <td>{{ "%.1f"|format(row.expected_cases) }}</td>
+            <td>{{ "%.1f"|format(row.effort_per_case) }}</td>
+            <td>{{ "%.1f"|format(row.unassigned_minutes / 60) }} h</td>
+            <td>Keine besetzte Stelle / Person mit FTE zugeordnet</td>
+        </tr>
+        {% endfor %}
+    </table>
+</section>
+{% endif %}
+
+<section>
+    <div class="section-title">
+        <h2>Aktivitäten über alle Prozesse</h2>
+    </div>
+
+    <table>
+        <tr>
+            <th>Prozess</th>
+            <th>Aktivität</th>
+            <th>Pfad-Faktor</th>
+            <th>Erwartete Fälle</th>
+            <th>Min./Fall</th>
+            <th>Total h</th>
+            <th>Zugeordnet h</th>
+            <th>Nicht zugeordnet h</th>
+            <th>Ausführung / verteilte Last</th>
+        </tr>
+        {% for row in result.activity_rows %}
+        <tr class="{% if not row.assigned_ok %}capacity-warning-row{% endif %}">
+            <td>{{ row.process.name }}</td>
+            <td>{{ row.node.name }}</td>
+            <td>{{ "%.1f"|format(row.visit_factor * 100) }}%</td>
+            <td>{{ "%.1f"|format(row.expected_cases) }}</td>
+            <td>{{ "%.1f"|format(row.effort_per_case) }}</td>
+            <td>{{ "%.1f"|format(row.total_minutes / 60) }}</td>
+            <td>{{ "%.1f"|format(row.assigned_minutes / 60) }}</td>
+            <td>{{ "%.1f"|format(row.unassigned_minutes / 60) }}</td>
+            <td>
+                {% for person in row.persons %}
+                    {{ person.name }}
+                    {% if row.split and person.id in row.split %}
+                        ({{ "%.1f"|format(row.split[person.id] / 60) }} h)
+                    {% endif %}
+                    {% if not loop.last %}, {% endif %}
+                {% else %}
+                    <span class="warning-text">keine Person zugeordnet</span>
+                {% endfor %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</section>
+{% endif %}
+{% endblock %}
