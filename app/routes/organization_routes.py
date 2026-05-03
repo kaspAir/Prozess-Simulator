@@ -1,7 +1,5 @@
 from flask import Blueprint, render_template, request
 
-from app.models import Role
-
 from app.models import (
     Organization,
     OrgUnit,
@@ -10,51 +8,17 @@ from app.models import (
     Person,
 )
 
+from app.services.organization_service import get_organization_overview
+
 organization_bp = Blueprint("organization", __name__, url_prefix="/organization")
 
-print(">>> LOADED app.web.organization_routes")
+#print(">>> LOADED app.web.organization_routes")
 
 @organization_bp.route("/")
 def organization():
-    organizations = Organization.query.order_by(Organization.name).all()
-
     org_id = request.args.get("org_id", type=int)
-    selected_org = None
-
-    if org_id:
-        selected_org = Organization.query.get(org_id)
-    elif organizations:
-        selected_org = organizations[0]
-
-    root_units = []
-    persons = []
-
-    if selected_org:
-        root_units = (
-            OrgUnit.query
-            .filter_by(organization_id=selected_org.id, parent_id=None)
-            .order_by(OrgUnit.sort_order, OrgUnit.name)
-            .all()
-        )
-        persons = (
-            Person.query
-            .filter_by(organization_id=selected_org.id)
-            .order_by(Person.name)
-            .all()
-        )
-
-    roles = Role.query.order_by(Role.name).all()
-    functions = Function.query.order_by(Function.name).all()
-
-    return render_template(
-        "organization.html",
-        organizations=organizations,
-        selected_org=selected_org,
-        root_units=root_units,
-        roles=roles,
-        functions=functions,
-        persons=persons,
-    )
+    data = get_organization_overview(org_id)
+    return render_template("organization.html", **data)
 
 
 @organization_bp.route("/edit")
@@ -100,4 +64,4 @@ def person_edit(person_id=None):
     person = Person.query.get(person_id) if person_id else None
     return render_template("person_edit.html", person=person)
 
-print("LOADED organization_routes.py endpoints: organization, organization_edit, org_unit_edit, role_edit, function_edit, person_edit")
+#print("LOADED organization_routes.py endpoints: organization, organization_edit, org_unit_edit, role_edit, function_edit, person_edit")
