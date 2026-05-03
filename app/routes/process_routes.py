@@ -23,5 +23,4 @@ def process_list():
 
 @process_bp.route("/bpmn")
 def bpmn_processes():
-    processes = get_all_processes()
-    return render_template("bpmn_processes.html", processes=processes)
+    return render_template("bpmn_editor.html")

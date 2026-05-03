@@ -19,6 +19,10 @@
                 <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
                 <a href="{{ url_for('organization.organization') }}">Organisation</a>
 
+                {% if endpoint_exists('process.bpmn_processes') %}
+                    <a href="{{ url_for('process.bpmn_processes') }}">BPMN</a>
+                {% endif %}
+
                 {% if endpoint_exists('process.process_map') %}
                     <a href="{{ url_for('process.process_map') }}">Prozesslandkarte</a>
                 {% endif %}
