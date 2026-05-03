@@ -45,7 +45,7 @@
 </form>
 
 {% if edge.id %}
-<form method="post" action="{{ url_for('edge_delete', process_id=process.id, edge_id=edge.id) }}" onsubmit="return confirm('Flow wirklich löschen?');">
+<form method="post" action="{{ url_for('process.edge_delete', process_id=process.id, edge_id=edge.id) }}" onsubmit="return confirm('Flow wirklich löschen?');">
     <button class="danger" type="submit">Flow löschen</button>
 </form>
 {% endif %}

@@ -81,7 +81,7 @@
 </form>
 
 {% if node.id %}
-<form method="post" action="{{ url_for('node_delete', process_id=process.id, node_id=node.id) }}">
+<form method="post" action="{{ url_for('process.node_delete', process_id=process.id, node_id=node.id) }}">
     <button class="danger" type="submit">Node löschen</button>
 </form>
 {% endif %}

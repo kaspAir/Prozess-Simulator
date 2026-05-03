@@ -4,13 +4,13 @@
     <div class="section-title">
         <h2>{{ process.name }}</h2>
         <div>
-            <a class="button" href="{{ url_for('node_edit', process_id=process.id) }}" target="_blank">Node hinzufügen</a>
+            <a class="button" href="{{ url_for('process.node_edit', process_id=process.id) }}" target="_blank">Node hinzufügen</a>
             <button type="button" class="button" id="connect-mode">Verbindung zeichnen</button>
-            <a class="button" href="{{ url_for('edge_edit', process_id=process.id) }}" target="_blank">Flow per Formular</a>
-            <a class="button" href="{{ url_for('process_edit', parent_id=process.id) }}" target="_blank">Subprozess erstellen</a>
-            <a class="button" href="{{ url_for('process_edit', process_id=process.id) }}" target="_blank">Prozess bearbeiten</a>
+            <a class="button" href="{{ url_for('process.edge_edit', process_id=process.id) }}" target="_blank">Flow per Formular</a>
+            <a class="button" href="{{ url_for('process.process_edit', parent_id=process.id) }}" target="_blank">Subprozess erstellen</a>
+            <a class="button" href="{{ url_for('process.process_edit', process_id=process.id) }}" target="_blank">Prozess bearbeiten</a>
             {% if process.parent %}
-                <a class="button" href="{{ url_for('process_graph', process_id=process.parent.id) }}">Zurück</a>
+                <a class="button" href="{{ url_for('process.process_graph', process_id=process.parent.id) }}">Zurück</a>
             {% endif %}
         </div>
     </div>
@@ -56,8 +56,8 @@
                  data-node-name="{{ node.name }}"
                  data-node-type="{{ node.type }}"
                  data-outgoing-count="{{ node.outgoing_edges|length }}"
-                 data-edit-url="{{ url_for('node_edit', process_id=process.id, node_id=node.id) }}"
-                 data-subprocess-url="{% if node.type == 'subprocess' and node.subprocess_id %}{{ url_for('process_graph', process_id=node.subprocess_id) }}{% endif %}"
+                 data-edit-url="{{ url_for('process.node_edit', process_id=process.id, node_id=node.id) }}"
+                 data-subprocess-url="{% if node.type == 'subprocess' and node.subprocess_id %}{{ url_for('process.process_graph', process_id=node.subprocess_id) }}{% endif %}"
                  style="left: {{ node.x or (80 + loop.index0 * 210) }}px; top: {{ node.y or 160 }}px;">
 
                 <div class="bpmn-node bpmn-{{ node.type }} {% if node_function_warnings is defined and node_function_warnings.get(node.id) %}node-has-warning{% endif %}">
@@ -157,7 +157,7 @@
                     {% endif %}
                 </div>
 
-                <a class="mini-edit" href="{{ url_for('node_edit', process_id=process.id, node_id=node.id) }}" target="_blank">✎</a>
+                <a class="mini-edit" href="{{ url_for('process.node_edit', process_id=process.id, node_id=node.id) }}" target="_blank">✎</a>
             </div>
         {% endfor %}
     </div>
@@ -166,7 +166,7 @@
 <section>
     <div class="section-title">
         <h2>Sequenzflüsse</h2>
-        <a class="button" href="{{ url_for('edge_edit', process_id=process.id) }}" target="_blank">Flow hinzufügen</a>
+        <a class="button" href="{{ url_for('process.edge_edit', process_id=process.id) }}" target="_blank">Flow hinzufügen</a>
     </div>
     <table id="edge-table">
         <tr><th>Von</th><th>Bedingung</th><th>Wahrscheinlichkeit</th><th>Nach</th><th>Aktion</th></tr>
@@ -181,7 +181,7 @@
                 <td>{% if edge.probability_percent is not none %}{{ "%.1f"|format(edge.probability_percent) }}%{% endif %}</td>
                 <td>{{ edge.target_node.name }}</td>
                 <td class="edge-actions">
-                    <a href="{{ url_for('edge_edit', process_id=process.id, edge_id=edge.id) }}" target="_blank">bearbeiten</a>
+                    <a href="{{ url_for('process.edge_edit', process_id=process.id, edge_id=edge.id) }}" target="_blank">bearbeiten</a>
                     <button class="link-danger edge-delete-button" type="button" data-edge-id="{{ edge.id }}">löschen</button>
                 </td>
             </tr>

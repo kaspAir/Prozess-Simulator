@@ -4,9 +4,9 @@
     <div class="section-title">
         <h2>Prozesslandkarte</h2>
         <div>
-            <a class="button" href="{{ url_for('process_edit') }}" target="_blank">Prozess hinzufügen</a>
+            <a class="button" href="{{ url_for('process.process_edit') }}" target="_blank">Prozess hinzufügen</a>
             <button type="button" class="button" id="connect-process-mode">Prozesse verbinden</button>
-            <a class="button" href="{{ url_for('process_list') }}">Prozessliste</a>
+            <a class="button" href="{{ url_for('process.process_list') }}">Prozessliste</a>
         </div>
     </div>
 
@@ -22,7 +22,7 @@
                  data-process-id="{{ process.id }}"
                  data-process-name="{{ process.name }}"
                  data-parent-id="{{ process.parent_process_id or '' }}"
-                 data-url="{{ url_for('process_graph', process_id=process.id) }}"
+                 data-url="{{ url_for('process.process_graph', process_id=process.id) }}"
                  style="left: {{ process.x if process.x is not none else fallback_x }}px; top: {{ process.y if process.y is not none else fallback_y }}px;">
 
                 <strong>{{ process.name }}</strong>
@@ -49,16 +49,16 @@
                 {% endif %}
 
                 <div class="process-card-actions">
-                    <a href="{{ url_for('process_graph', process_id=process.id) }}">öffnen</a>
-                    <a href="{{ url_for('process_edit', process_id=process.id) }}" target="_blank">bearbeiten</a>
+                    <a href="{{ url_for('process.process_graph', process_id=process.id) }}">öffnen</a>
+                    <a href="{{ url_for('process.process_edit', process_id=process.id) }}" target="_blank">bearbeiten</a>
 
                     {% if process.parent_process_id %}
-                    <form method="post" action="{{ url_for('process_detach', process_id=process.id) }}" onsubmit="return confirm('Verbindung lösen?');">
+                    <form method="post" action="{{ url_for('process.process_detach', process_id=process.id) }}" onsubmit="return confirm('Verbindung lösen?');">
                         <button class="link-warning" type="submit">Verbindung lösen</button>
                     </form>
                     {% endif %}
 
-                    <form method="post" action="{{ url_for('process_delete', process_id=process.id) }}" onsubmit="return confirm('Prozess wirklich löschen?');">
+                    <form method="post" action="{{ url_for('process.process_delete', process_id=process.id) }}" onsubmit="return confirm('Prozess wirklich löschen?');">
                         <button class="link-danger" type="submit">löschen</button>
                     </form>
                 </div>

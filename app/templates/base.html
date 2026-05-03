@@ -9,25 +9,33 @@
 <body>
 <header class="app-header">
     <div class="logo-row">
-        <a href="{{ url_for('index') }}" class="logo-left">
+        <a href="{{ url_for('main.dashboard') }}" class="logo-left">
             <img src="{{ url_for('static', filename='img/eJustice_Logo_Original_Web.png') }}" alt="eJustice.ch">
         </a>
 
         <div class="app-title">
             <h1>Prozess-Simulator</h1>
             <nav>
-                <a href="{{ url_for('index') }}">BPMN-Prozess</a>
-                <a href="{{ url_for('organization') }}">Organisation</a>
-		<a href="{{ url_for('process_map') }}">Prozesslandkarte</a>
-		<a href="{{ url_for('process_list') }}">Prozesse</a>
-        <a href="{{ url_for('simulation') }}">Simulation</a>
-        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('organization.organization') }}">Organisation</a>
+
+                {% if endpoint_exists('process.process_map') %}
+                    <a href="{{ url_for('process.process_map') }}">Prozesslandkarte</a>
+                {% endif %}
+
+                {% if endpoint_exists('process.process_list') %}
+                    <a href="{{ url_for('process.process_list') }}">Prozesse</a>
+                {% endif %}
+
+                {% if endpoint_exists('process.simulation') %}
+                    <a href="{{ url_for('process.simulation') }}">Simulation</a>
+                {% endif %}
             </nav>
         </div>
 
-        <div class="logo-right">
+        <a href="{{ url_for('main.dashboard') }}" class="logo-right">
             <img src="{{ url_for('static', filename='img/DiTi_Logo.jpg') }}" alt="DiTi">
-        </div>
+        </a>
     </div>
 </header>
 <main>

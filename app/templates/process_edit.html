@@ -37,8 +37,8 @@
 
 {% if process %}
     <p>
-        <a class="button" href="{{ url_for('process_graph', process_id=process.id) }}">Prozess öffnen</a>
-        <a class="button" href="{{ url_for('process_map') }}">Zur Prozesslandkarte</a>
+        <a class="button" href="{{ url_for('process.process_graph', process_id=process.id) }}">Prozess öffnen</a>
+        <a class="button" href="{{ url_for('process.process_map') }}">Zur Prozesslandkarte</a>
     </p>
 {% endif %}
 {% endblock %}
