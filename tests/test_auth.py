@@ -131,6 +131,8 @@ def test_per_organization_scope(app):
 
         assert user_has_permission(user, P_PERSONS_MANAGE, organization_id=org_a.id, account=acc) is True
         assert user_has_permission(user, P_PERSONS_MANAGE, organization_id=org_b.id, account=acc) is False
+        # ohne konkreten Org-Kontext genuegt das Recht in irgendeiner Org (robust)
+        assert user_has_permission(user, P_PERSONS_MANAGE, organization_id=None, account=acc) is True
 
 
 # ── Einladung ──────────────────────────────────────────────────────────────
