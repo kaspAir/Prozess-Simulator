@@ -23,18 +23,19 @@ Trennung willst.
 - Für Subdomains `test.ditwi.ch` / `int.ditwi.ch` analog je eigenen Web-Root.
 
 ### 2. PHP-Reverse-Proxy in den Web-Root legen
-Aus `deploy/php-proxy/` in den Web-Root der Site kopieren (SFTP/SSH/Dateimanager):
-- `index.php`  (Port im Skript prüfen: ditwi.ch = **8010**)
-- `.htaccess`
+Web-Roots liegen unter `~/sites/<domain>/`. Am einfachsten den **bewährten
+hermespia-Proxy kopieren** und nur den Ziel-Port anpassen:
 
-Beispiel per SSH:
 ```bash
-SITE=$HOME/sites/ditwi.ch          # an deinen Dokument-Root anpassen
-mkdir -p "$SITE"
-cp $HOME/prozess-simulator/deploy/php-proxy/index.php   "$SITE/"
-cp $HOME/prozess-simulator/deploy/php-proxy/.htaccess   "$SITE/"
-# Für test/int: index.php kopieren und $TARGET_PORT auf 8011 bzw. 8012 setzen.
+SITE=~/sites/ditwi.ch
+cp ~/sites/hermespia.ch/index.php "$SITE/index.php"
+cp ~/sites/hermespia.ch/.htaccess "$SITE/.htaccess"
+sed -i 's#127.0.0.1:8000#127.0.0.1:8010#' "$SITE/index.php"   # 8010 prod
+# test.ditwi.ch -> 8011, int.ditwi.ch -> 8012 analog
 ```
+
+Alternativ liegen identische Dateien unter `deploy/php-proxy/` im Repo
+(Port dort bereits 8010).
 
 ### 3. HTTPS aktivieren (Infomaniak-Panel)
 - Bei der Site **SSL/TLS-Zertifikat (Let's Encrypt)** für `ditwi.ch`

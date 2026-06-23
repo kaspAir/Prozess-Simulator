@@ -1,4 +1,8 @@
-# Alle Requests durch den PHP-Reverse-Proxy leiten (Front-Controller).
 RewriteEngine On
-RewriteCond %{REQUEST_URI} !^/index\.php$
-RewriteRule ^ index.php [QSA,L]
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+
+DirectoryIndex index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [L,QSA]
