@@ -71,7 +71,7 @@ pipeline {
                             pip install -r requirements.txt -q
                             if [ -f .env ]; then set -a; . ./.env; set +a; fi
                             [ -f data/prozess_simulator.db ] || python init_db.py
-                            python seed_auth.py
+                            python seed_auth.py || { echo "FEHLER: seed_auth fehlgeschlagen"; exit 1; }
                             PID_FILE=\$HOME/tmp/gunicorn-pros-prod.pid
                             [ -f "\$PID_FILE" ] && kill \$(cat "\$PID_FILE") 2>/dev/null || true
                             sleep 1
@@ -106,7 +106,7 @@ pipeline {
                             pip install -r requirements.txt -q
                             if [ -f .env ]; then set -a; . ./.env; set +a; fi
                             [ -f data/prozess_simulator.db ] || python init_db.py
-                            python seed_auth.py
+                            python seed_auth.py || { echo "FEHLER: seed_auth fehlgeschlagen"; exit 1; }
                             PID_FILE=\$HOME/tmp/gunicorn-pros-int.pid
                             [ -f "\$PID_FILE" ] && kill \$(cat "\$PID_FILE") 2>/dev/null || true
                             sleep 1
@@ -141,7 +141,7 @@ pipeline {
                             pip install -r requirements.txt -q
                             if [ -f .env ]; then set -a; . ./.env; set +a; fi
                             [ -f data/prozess_simulator.db ] || python init_db.py
-                            python seed_auth.py
+                            python seed_auth.py || { echo "FEHLER: seed_auth fehlgeschlagen"; exit 1; }
                             PID_FILE=\$HOME/tmp/gunicorn-pros-test.pid
                             [ -f "\$PID_FILE" ] && kill \$(cat "\$PID_FILE") 2>/dev/null || true
                             sleep 1

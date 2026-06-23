@@ -12,6 +12,8 @@ ENV:
 """
 import os
 
+from sqlalchemy import inspect, text
+
 from app import create_app
 from app.models import (
     db, Account, Organization, Process, Role, Function, Activity, Person,
@@ -23,10 +25,28 @@ from app.auth.service import set_password
 SCOPED_MODELS = (Organization, Process, Role, Function, Activity, Person)
 
 
+def ensure_account_columns():
+    """Ergaenzt fehlende account_id-Spalten in bereits existierenden Tabellen.
+    db.create_all() legt nur fehlende TABELLEN an, aber keine neuen SPALTEN -
+    daher diese leichtgewichtige, datenerhaltende Migration."""
+    insp = inspect(db.engine)
+    existing = set(insp.get_table_names())
+    for Model in SCOPED_MODELS:
+        table = Model.__tablename__
+        if table not in existing:
+            continue
+        cols = [c["name"] for c in insp.get_columns(table)]
+        if "account_id" not in cols:
+            db.session.execute(text(f"ALTER TABLE {table} ADD COLUMN account_id INTEGER"))
+            print(f"  + Spalte account_id zu {table} ergaenzt")
+    db.session.commit()
+
+
 def run():
     app = create_app()
     with app.app_context():
         db.create_all()
+        ensure_account_columns()
 
         # 1) Bootstrap-Account
         account = Account.query.first()
