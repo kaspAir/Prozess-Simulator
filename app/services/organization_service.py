@@ -1,12 +1,17 @@
 from app.models import Organization, OrgUnit, Role, Function, Person
+from app.auth.service import current_account_id
 
 
 def get_organization_overview(org_id=None):
-    organizations = Organization.query.order_by(Organization.name).all()
+    account_id = current_account_id()
+    organizations = (
+        Organization.query.filter_by(account_id=account_id)
+        .order_by(Organization.name).all()
+    )
 
     selected_org = None
     if org_id:
-        selected_org = Organization.query.get(org_id)
+        selected_org = Organization.query.filter_by(id=org_id, account_id=account_id).first()
     elif organizations:
         selected_org = organizations[0]
 
@@ -28,8 +33,8 @@ def get_organization_overview(org_id=None):
             .all()
         )
 
-    roles = Role.query.order_by(Role.name).all()
-    functions = Function.query.order_by(Function.name).all()
+    roles = Role.query.filter_by(account_id=account_id).order_by(Role.name).all()
+    functions = Function.query.filter_by(account_id=account_id).order_by(Function.name).all()
 
     return {
         "organizations": organizations,

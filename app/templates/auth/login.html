@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>Anmelden – Prozess-Simulator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='img/DiTi_Logo.jpg') }}">
+</head>
+<body>
+<main style="max-width:380px;margin:8vh auto;padding:0 16px;">
+    <div style="text-align:center;margin-bottom:18px;">
+        <img src="{{ url_for('static', filename='img/eJustice_Logo_Original_Web.png') }}" alt="eJustice.ch" style="height:48px;">
+        <h1 style="font-size:1.4em;margin:.5em 0 0;">Prozess-Simulator</h1>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, msg in messages %}
+        <div style="padding:8px 12px;border-radius:6px;margin:8px 0;background:#fee2e2;border:1px solid #fca5a5;">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="post" action="{{ url_for('auth.login') }}">
+        <input type="hidden" name="next" value="{{ next }}">
+        <label>E-Mail<br>
+            <input type="email" name="email" required autofocus style="width:100%;padding:8px;margin:4px 0 12px;">
+        </label>
+        <label>Passwort<br>
+            <input type="password" name="password" required style="width:100%;padding:8px;margin:4px 0 16px;">
+        </label>
+        <button type="submit" style="width:100%;padding:10px;">Anmelden</button>
+    </form>
+</main>
+</body>
+</html>

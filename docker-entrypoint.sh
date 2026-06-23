@@ -10,7 +10,12 @@ if [ ! -f "$DB_FILE" ]; then
     echo "[entrypoint] Keine Datenbank gefunden -> initialisiere $DB_FILE"
     python init_db.py
 else
-    echo "[entrypoint] Datenbank vorhanden -> kein Seed."
+    echo "[entrypoint] Datenbank vorhanden -> kein Demo-Seed."
 fi
+
+# Auth-Seed ist idempotent: Account, Vorlagen-Rollen, Daten-Zuordnung,
+# Bootstrap-Admin (falls BOOTSTRAP_ADMIN_* gesetzt).
+echo "[entrypoint] Auth-Seed..."
+python seed_auth.py
 
 exec "$@"
