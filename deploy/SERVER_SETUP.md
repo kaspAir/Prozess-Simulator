@@ -38,8 +38,17 @@ cat > "$APP_DIR/.env" <<EOF
 FLASK_SECRET_KEY=<langer-zufaelliger-wert>
 DATABASE_URL=sqlite:///$APP_DIR/data/prozess_simulator.db
 FLASK_DEBUG=0
+# Bootstrap-Admin (erster Super-/Account-Admin), vom Auth-Seed angelegt:
+BOOTSTRAP_ACCOUNT_NAME=ditwi
+BOOTSTRAP_ADMIN_NAME=Kaspar Broennimann
+BOOTSTRAP_ADMIN_EMAIL=<deine-email>
+BOOTSTRAP_ADMIN_PASSWORD=<starkes-passwort>
 EOF
 ```
+
+> Der Deploy ruft nach `init_db.py` ein **idempotentes** `seed_auth.py`, das Account,
+> Vorlagen-Rollen und – bei gesetzten `BOOTSTRAP_ADMIN_*` – den ersten Admin anlegt.
+> Nach dem ersten Login kann das Passwort in der App geändert werden.
 
 Für `-test` und `-int` analog (eigener `FLASK_SECRET_KEY`, eigenes `data/`).
 

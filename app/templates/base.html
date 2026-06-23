@@ -41,8 +41,47 @@
             <img src="{{ url_for('static', filename='img/DiTi_Logo.jpg') }}" alt="DiTi">
         </a>
     </div>
+
+    {% if current_user.is_authenticated %}
+    <div class="user-bar" style="display:flex;align-items:center;gap:14px;justify-content:flex-end;
+                                 padding:6px 16px;font-size:.9em;border-top:1px solid #e5e7eb;">
+        <span>👤 {{ current_user.name }}{% if current_account %} · {{ current_account.name }}{% endif %}</span>
+
+        {% if current_account and current_account.organizations %}
+        <form method="post" action="{{ url_for('admin.switch_org') }}" style="margin:0;">
+            <select name="organization_id" onchange="this.form.submit()">
+                <option value="">— ganzer Account —</option>
+                {% for o in current_account.organizations %}
+                    <option value="{{ o.id }}" {% if active_organization_id == o.id %}selected{% endif %}>{{ o.name }}</option>
+                {% endfor %}
+            </select>
+        </form>
+        {% endif %}
+
+        {% if current_user_can('account.members.manage') %}
+            <a href="{{ url_for('admin.members') }}">Mitglieder</a>
+        {% endif %}
+        {% if current_user.is_super_admin %}
+            <a href="{{ url_for('admin.accounts') }}">Accounts</a>
+        {% endif %}
+        <a href="{{ url_for('auth.logout') }}">Logout</a>
+    </div>
+    {% endif %}
 </header>
 <main>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-area" style="margin:10px 0;">
+          {% for category, msg in messages %}
+            <div class="flash flash-{{ category }}"
+                 style="padding:8px 12px;border-radius:6px;margin:6px 0;
+                        background:{{ '#fee2e2' if category=='error' else '#dcfce7' }};
+                        border:1px solid {{ '#fca5a5' if category=='error' else '#86efac' }};
+                        word-break:break-all;">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
     {% block content %}{% endblock %}
 </main>
 </body>

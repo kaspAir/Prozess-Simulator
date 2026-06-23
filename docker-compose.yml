@@ -16,6 +16,9 @@ services:
       DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/prozess_simulator.db}
       FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:-dev-secret}
       FLASK_DEBUG: "0"
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-Admin}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@example.com}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-changeme123}
     volumes:
       - pros-data:/app/data
 

@@ -1,4 +1,5 @@
 from flask import Blueprint, redirect, url_for, render_template, request, session
+from flask_login import current_user
 
 from app.models import Process
 from app.dashboard import (
@@ -6,6 +7,8 @@ from app.dashboard import (
     operational_dashboard_for_process,
     PERIOD_LABELS,
 )
+from app.auth.permissions import P_DASHBOARD_VIEW
+from app.auth.service import require_permission, current_account_id
 
 main_bp = Blueprint("main", __name__)
 
@@ -16,8 +19,17 @@ def index():
 
 
 @main_bp.route("/dashboard")
+@require_permission(P_DASHBOARD_VIEW)
 def dashboard():
-    processes = Process.query.order_by(Process.id).all()
+    account_id = current_account_id()
+    if account_id is None:
+        if current_user.is_super_admin:
+            return redirect(url_for("admin.accounts"))
+        return render_template(
+            "dashboard.html", dashboard_items=[], operational_items={},
+            op_cases=80, op_period="day", op_period_label="Tag", active_tab="strategic",
+        )
+    processes = Process.query.filter_by(account_id=account_id).order_by(Process.id).all()
 
     active_tab = request.args.get("tab")
     if active_tab:

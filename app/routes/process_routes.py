@@ -1,6 +1,9 @@
-from flask import Blueprint, render_template, request, redirect, url_for, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, jsonify, abort
+from flask_login import current_user
 
 from app.models import db, Role, Function, Process, Node, Edge, OrgUnit
+from app.auth.permissions import P_DASHBOARD_VIEW, P_PROCESSES_MANAGE, P_SIMULATION_RUN
+from app.auth.service import user_has_permission, current_account_id
 from app.simulation import simulate_end_to_end
 from app.calculations import (
     node_position_cost,
@@ -17,6 +20,19 @@ from app.calculations import (
 )
 
 process_bp = Blueprint("process", __name__)
+
+
+@process_bp.before_request
+def _guard():
+    ep = (request.endpoint or "").split(".")[-1]
+    if ep == "simulation":
+        need = P_SIMULATION_RUN
+    elif request.method in ("POST", "PUT", "DELETE"):
+        need = P_PROCESSES_MANAGE
+    else:
+        need = P_DASHBOARD_VIEW
+    if not user_has_permission(current_user, need):
+        abort(403)
 
 
 @process_bp.route("/process/<int:process_id>")
@@ -234,6 +250,7 @@ def process_edit(process_id=None):
             process = Process(
                 name=request.form["name"],
                 parent_process_id=int(form_parent_id) if form_parent_id else None,
+                account_id=current_account_id(),
             )
             db.session.add(process)
             db.session.commit()
@@ -299,7 +316,7 @@ def process_delete(process_id):
 
 @process_bp.route("/process-map")
 def process_map():
-    processes = Process.query.order_by(Process.id).all()
+    processes = Process.query.filter_by(account_id=current_account_id()).order_by(Process.id).all()
     process_summaries = {process.id: process_cost_summary(process) for process in processes}
 
     return render_template(
@@ -311,7 +328,10 @@ def process_map():
 
 @process_bp.route("/processes")
 def process_list():
-    processes = Process.query.order_by(Process.parent_process_id.nullsfirst(), Process.name).all()
+    processes = (
+        Process.query.filter_by(account_id=current_account_id())
+        .order_by(Process.parent_process_id.nullsfirst(), Process.name).all()
+    )
     process_summaries = {process.id: process_cost_summary(process) for process in processes}
 
     return render_template(

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>Einladung annehmen – Prozess-Simulator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='img/DiTi_Logo.jpg') }}">
+</head>
+<body>
+<main style="max-width:420px;margin:8vh auto;padding:0 16px;">
+    <div style="text-align:center;margin-bottom:18px;">
+        <img src="{{ url_for('static', filename='img/eJustice_Logo_Original_Web.png') }}" alt="eJustice.ch" style="height:48px;">
+        <h1 style="font-size:1.4em;margin:.5em 0 0;">Prozess-Simulator</h1>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, msg in messages %}
+        <div style="padding:8px 12px;border-radius:6px;margin:8px 0;background:#fee2e2;border:1px solid #fca5a5;">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    {% if invalid %}
+        <p>Diese Einladung ist ungültig, abgelaufen oder bereits eingelöst.</p>
+        <p><a href="{{ url_for('auth.login') }}">Zur Anmeldung</a></p>
+    {% else %}
+        <p>Du wurdest zu <strong>{{ inv.account.name }}</strong> eingeladen
+           ({{ inv.email }}). Lege dein Konto an:</p>
+        <form method="post" action="{{ url_for('auth.accept_invite', token=token) }}">
+            <label>Name<br>
+                <input type="text" name="name" required autofocus style="width:100%;padding:8px;margin:4px 0 12px;">
+            </label>
+            <label>Passwort (mind. 8 Zeichen)<br>
+                <input type="password" name="password" required minlength="8" style="width:100%;padding:8px;margin:4px 0 16px;">
+            </label>
+            <button type="submit" style="width:100%;padding:10px;">Konto erstellen & anmelden</button>
+        </form>
+    {% endif %}
+</main>
+</body>
+</html>

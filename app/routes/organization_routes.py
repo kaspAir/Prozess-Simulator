@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template, request
+from flask import Blueprint, render_template, request, abort
+from flask_login import current_user
 
 from app.models import (
     Organization,
@@ -9,10 +10,24 @@ from app.models import (
 )
 
 from app.services.organization_service import get_organization_overview
+from app.auth.permissions import P_DASHBOARD_VIEW, P_ORGCHART_MANAGE, P_PERSONS_MANAGE
+from app.auth.service import user_has_permission
 
 organization_bp = Blueprint("organization", __name__, url_prefix="/organization")
 
-#print(">>> LOADED app.web.organization_routes")
+
+@organization_bp.before_request
+def _guard():
+    ep = (request.endpoint or "").split(".")[-1]
+    if ep == "person_edit":
+        need = P_PERSONS_MANAGE
+    elif ep in ("organization_edit", "org_unit_edit", "role_edit", "function_edit"):
+        need = P_ORGCHART_MANAGE
+    else:
+        need = P_DASHBOARD_VIEW
+    if not user_has_permission(current_user, need):
+        abort(403)
+
 
 @organization_bp.route("/")
 def organization():
