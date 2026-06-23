@@ -59,16 +59,17 @@ pipeline {
                     sh """
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_HOST} '
                             APP_DIR=\$HOME/prozess-simulator
-                            if [ ! -d "\$APP_DIR/.git" ]; then git clone ${REPO_URL} "\$APP_DIR"; fi
+                            mkdir -p "\$APP_DIR/data" "\$APP_DIR/logs" \$HOME/tmp
                             cd "\$APP_DIR"
+                            if [ ! -d .git ]; then git init -q && git remote add origin ${REPO_URL}; fi
                             git remote set-url origin ${REPO_URL}
                             git fetch origin
                             git reset --hard origin/main
-                            [ -d .venv ] || python3 -m venv .venv
+                            if [ ! -f .venv/bin/activate ]; then rm -rf .venv; { python3 -m pip install --user -q virtualenv || pip install --user -q virtualenv; }; { python3 -m virtualenv .venv || \$HOME/.local/bin/virtualenv .venv; }; fi
+                            if [ ! -f .venv/bin/activate ]; then echo "FEHLER: venv konnte nicht erstellt werden (.venv/bin/activate fehlt)"; exit 1; fi
                             . .venv/bin/activate
                             pip install -r requirements.txt -q
-                            mkdir -p "\$APP_DIR/data" "\$APP_DIR/logs" \$HOME/tmp
-                            set -a; [ -f .env ] && . ./.env; set +a
+                            if [ -f .env ]; then set -a; . ./.env; set +a; fi
                             [ -f data/prozess_simulator.db ] || python init_db.py
                             PID_FILE=\$HOME/tmp/gunicorn-pros-prod.pid
                             [ -f "\$PID_FILE" ] && kill \$(cat "\$PID_FILE") 2>/dev/null || true
@@ -92,16 +93,17 @@ pipeline {
                     sh """
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_HOST} '
                             APP_DIR=\$HOME/prozess-simulator-int
-                            if [ ! -d "\$APP_DIR/.git" ]; then git clone ${REPO_URL} "\$APP_DIR"; fi
+                            mkdir -p "\$APP_DIR/data" "\$APP_DIR/logs" \$HOME/tmp
                             cd "\$APP_DIR"
+                            if [ ! -d .git ]; then git init -q && git remote add origin ${REPO_URL}; fi
                             git remote set-url origin ${REPO_URL}
                             git fetch origin
                             git reset --hard origin/integration
-                            [ -d .venv ] || python3 -m venv .venv
+                            if [ ! -f .venv/bin/activate ]; then rm -rf .venv; { python3 -m pip install --user -q virtualenv || pip install --user -q virtualenv; }; { python3 -m virtualenv .venv || \$HOME/.local/bin/virtualenv .venv; }; fi
+                            if [ ! -f .venv/bin/activate ]; then echo "FEHLER: venv konnte nicht erstellt werden (.venv/bin/activate fehlt)"; exit 1; fi
                             . .venv/bin/activate
                             pip install -r requirements.txt -q
-                            mkdir -p "\$APP_DIR/data" "\$APP_DIR/logs" \$HOME/tmp
-                            set -a; [ -f .env ] && . ./.env; set +a
+                            if [ -f .env ]; then set -a; . ./.env; set +a; fi
                             [ -f data/prozess_simulator.db ] || python init_db.py
                             PID_FILE=\$HOME/tmp/gunicorn-pros-int.pid
                             [ -f "\$PID_FILE" ] && kill \$(cat "\$PID_FILE") 2>/dev/null || true
@@ -125,16 +127,17 @@ pipeline {
                     sh """
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_HOST} '
                             APP_DIR=\$HOME/prozess-simulator-test
-                            if [ ! -d "\$APP_DIR/.git" ]; then git clone ${REPO_URL} "\$APP_DIR"; fi
+                            mkdir -p "\$APP_DIR/data" "\$APP_DIR/logs" \$HOME/tmp
                             cd "\$APP_DIR"
+                            if [ ! -d .git ]; then git init -q && git remote add origin ${REPO_URL}; fi
                             git remote set-url origin ${REPO_URL}
                             git fetch origin
                             git reset --hard origin/test
-                            [ -d .venv ] || python3 -m venv .venv
+                            if [ ! -f .venv/bin/activate ]; then rm -rf .venv; { python3 -m pip install --user -q virtualenv || pip install --user -q virtualenv; }; { python3 -m virtualenv .venv || \$HOME/.local/bin/virtualenv .venv; }; fi
+                            if [ ! -f .venv/bin/activate ]; then echo "FEHLER: venv konnte nicht erstellt werden (.venv/bin/activate fehlt)"; exit 1; fi
                             . .venv/bin/activate
                             pip install -r requirements.txt -q
-                            mkdir -p "\$APP_DIR/data" "\$APP_DIR/logs" \$HOME/tmp
-                            set -a; [ -f .env ] && . ./.env; set +a
+                            if [ -f .env ]; then set -a; . ./.env; set +a; fi
                             [ -f data/prozess_simulator.db ] || python init_db.py
                             PID_FILE=\$HOME/tmp/gunicorn-pros-test.pid
                             [ -f "\$PID_FILE" ] && kill \$(cat "\$PID_FILE") 2>/dev/null || true
