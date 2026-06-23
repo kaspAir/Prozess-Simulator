@@ -4,13 +4,13 @@ from flask import (
 from flask_login import login_required, current_user
 
 from app.models import (
-    db, Account, Organization, Membership, AccessRole, RoleAssignment, Invitation,
+    db, Account, Organization, Membership, AccessRole, RoleAssignment, Invitation, User,
 )
 from app.auth.permissions import P_ACCOUNT_MEMBERS, ALL_PERMISSIONS
 from app.auth.service import (
     require_permission, current_account, current_account_id,
     set_active_account, set_active_organization, create_invitation,
-    is_last_account_admin,
+    is_last_account_admin, set_password,
 )
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -53,6 +53,66 @@ def invite():
     inv = create_invitation(account.id, email, role_id, org_id)
     link = url_for("auth.accept_invite", token=inv.token, _external=True)
     flash(f"Einladung erstellt. Link zum Teilen: {link}", "success")
+    return redirect(url_for("admin.members"))
+
+
+@admin_bp.route("/members/create", methods=["POST"])
+@require_permission(P_ACCOUNT_MEMBERS)
+def create_member():
+    account = current_account()
+    name = (request.form.get("name") or "").strip()
+    email = (request.form.get("email") or "").strip().lower()
+    password = request.form.get("password") or ""
+    role_id = request.form.get("access_role_id", type=int)
+    org_id = request.form.get("organization_id", type=int) or None
+    if not email or not role_id:
+        flash("E-Mail und Rolle sind erforderlich.", "error")
+        return redirect(url_for("admin.members"))
+
+    user = User.query.filter_by(email=email).first()
+    created = user is None
+    if created:
+        if len(password) < 8:
+            flash("Passwort muss mindestens 8 Zeichen haben.", "error")
+            return redirect(url_for("admin.members"))
+        user = User(name=name or email, email=email)
+        set_password(user, password)
+        db.session.add(user)
+        db.session.flush()
+
+    membership = Membership.query.filter_by(user_id=user.id, account_id=account.id).first()
+    if membership is None:
+        membership = Membership(user_id=user.id, account_id=account.id)
+        db.session.add(membership)
+        db.session.flush()
+    if RoleAssignment.query.filter_by(
+        membership_id=membership.id, access_role_id=role_id, organization_id=org_id
+    ).first() is None:
+        db.session.add(RoleAssignment(
+            membership_id=membership.id, access_role_id=role_id, organization_id=org_id))
+    db.session.commit()
+
+    if created:
+        flash(f"Mitglied {email} angelegt (Passwort dem Mitglied mitteilen).", "success")
+    else:
+        flash(f"Bestehender Benutzer {email} zum Account hinzugefügt (Passwort unverändert).", "success")
+    return redirect(url_for("admin.members"))
+
+
+@admin_bp.route("/members/<int:membership_id>/reset-password", methods=["POST"])
+@require_permission(P_ACCOUNT_MEMBERS)
+def reset_password(membership_id):
+    account = current_account()
+    m = db.session.get(Membership, membership_id)
+    if not m or m.account_id != account.id:
+        abort(404)
+    new_pw = request.form.get("password") or ""
+    if len(new_pw) < 8:
+        flash("Passwort muss mindestens 8 Zeichen haben.", "error")
+        return redirect(url_for("admin.members"))
+    set_password(m.user, new_pw)
+    db.session.commit()
+    flash(f"Passwort für {m.user.email} zurückgesetzt.", "success")
     return redirect(url_for("admin.members"))
 
 

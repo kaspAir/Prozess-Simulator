@@ -64,6 +64,7 @@
         {% if current_user.is_super_admin %}
             <a href="{{ url_for('admin.accounts') }}">Accounts</a>
         {% endif %}
+        <a href="{{ url_for('auth.account') }}">Mein Konto</a>
         <a href="{{ url_for('auth.logout') }}">Logout</a>
     </div>
     {% endif %}

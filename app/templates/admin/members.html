@@ -15,6 +15,12 @@
           <strong>{{ m.user.name }}</strong><br>
           <span style="color:#666;">{{ m.user.email }}</span>
           {% if m.user.is_super_admin %}<br><em>Super-Admin</em>{% endif %}
+          <form method="post" action="{{ url_for('admin.reset_password', membership_id=m.id) }}"
+                style="margin:6px 0 0;display:flex;gap:4px;">
+            <input type="password" name="password" placeholder="neues Passwort" minlength="8" required
+                   style="width:130px;">
+            <button type="submit" title="Passwort zurücksetzen">↺</button>
+          </form>
         </td>
         <td style="padding:8px;">
           {% for asg in m.assignments %}
@@ -49,7 +55,26 @@
     </tbody>
   </table>
 
-  <h3 style="margin-top:28px;">Mitglied einladen</h3>
+  <h3 style="margin-top:28px;">Mitglied direkt anlegen (mit Passwort)</h3>
+  <form method="post" action="{{ url_for('admin.create_member') }}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+    <label>Name<br><input type="text" name="name"></label>
+    <label>E-Mail<br><input type="email" name="email" required></label>
+    <label>Passwort<br><input type="password" name="password" minlength="8" required></label>
+    <label>Rolle<br>
+      <select name="access_role_id" required>
+        {% for r in roles %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Organisation<br>
+      <select name="organization_id">
+        <option value="">accountweit</option>
+        {% for o in orgs %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <button type="submit">Anlegen</button>
+  </form>
+
+  <h3 style="margin-top:28px;">Mitglied per Link einladen</h3>
   <form method="post" action="{{ url_for('admin.invite') }}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
     <label>E-Mail<br><input type="email" name="email" required></label>
     <label>Rolle<br>
