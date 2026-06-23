@@ -3,7 +3,7 @@ Decorator, Einladungen."""
 import secrets
 from functools import wraps
 
-from flask import session, abort
+from flask import session, abort, has_request_context
 from flask_login import current_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -16,7 +16,7 @@ from app.auth.permissions import ACCOUNT_ADMIN_ROLE, P_ACCOUNT_MEMBERS
 
 # ── Aktiver Kontext (Session) ──────────────────────────────────────────────
 def current_account():
-    aid = session.get("active_account_id")
+    aid = session.get("active_account_id") if has_request_context() else None
     if aid:
         acc = db.session.get(Account, aid)
         if acc:
@@ -47,7 +47,27 @@ def set_active_organization(organization_id):
 
 
 def active_organization_id():
+    if not has_request_context():
+        return None
     return session.get("active_organization_id")
+
+
+def initialize_active_context(user):
+    """Nach dem Login: aktiven Account setzen und – falls das Mitglied KEINE
+    accountweite Rolle hat – eine Standard-Organisation aus seinen pro-Org-
+    Zuweisungen vorwaehlen, damit die Berechtigungen sofort greifen."""
+    membership = Membership.query.filter_by(user_id=user.id).first()
+    if membership is None:
+        session.pop("active_account_id", None)
+        session.pop("active_organization_id", None)
+        return
+    set_active_account(membership.account_id)  # setzt Account, leert Org
+    has_account_wide = any(a.organization_id is None for a in membership.assignments)
+    if not has_account_wide:
+        per_org = next((a.organization_id for a in membership.assignments
+                        if a.organization_id is not None), None)
+        if per_org:
+            set_active_organization(per_org)
 
 
 # ── Mitgliedschaft / Permissions ───────────────────────────────────────────
@@ -78,6 +98,13 @@ def user_has_permission(user, permission_key, organization_id=None, account=None
         )
         if applies and permission_key in asg.access_role.permission_keys:
             return True
+    # Ohne konkreten Org-Kontext (account-weite Seite / keine aktive Org): das
+    # Recht genuegt, wenn es in IRGENDEINER Organisation des Mitglieds vorhanden
+    # ist. Verhindert 403-Lockouts, wenn keine aktive Organisation gesetzt ist.
+    if organization_id is None:
+        for asg in membership.assignments:
+            if permission_key in asg.access_role.permission_keys:
+                return True
     return False
 
 
