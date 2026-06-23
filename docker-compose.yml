@@ -1,0 +1,40 @@
+# Lokale Entwicklung / CI. NICHT fuer Produktion (Managed Hosting laeuft ohne Docker).
+#
+#   Standard (SQLite):      docker compose up --build
+#   Mit PostgreSQL testen:  docker compose --profile pg up --build
+#
+services:
+
+  pros:
+    build: .
+    image: prozess-simulator:local
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      # Standard: SQLite im persistenten Volume.
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/prozess_simulator.db}
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:-dev-secret}
+      FLASK_DEBUG: "0"
+    volumes:
+      - pros-data:/app/data
+
+  # Optionaler PostgreSQL-Dienst. Nur aktiv mit:  --profile pg
+  # Dann zusaetzlich DATABASE_URL passend setzen, z. B. via .env:
+  #   DATABASE_URL=postgresql+psycopg2://pros:pros@db:5432/prozess_simulator
+  db:
+    image: postgres:16-alpine
+    profiles: ["pg"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pros
+      POSTGRES_PASSWORD: pros
+      POSTGRES_DB: prozess_simulator
+    ports:
+      - "5432:5432"
+    volumes:
+      - pros-pgdata:/var/lib/postgresql/data
+
+volumes:
+  pros-data:
+  pros-pgdata:

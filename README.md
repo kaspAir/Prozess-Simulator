@@ -76,13 +76,15 @@ Screenshots (optional einfügen)
 Architektur
 Browser
    ↓
-Flask (app.py)
+Flask (run.py → app/__init__.py: create_app)
    ↓
-Business Logic (dashboard.py)
+Blueprints (app/routes/) + Services (app/services/)
    ↓
-SQLAlchemy (models.py)
+Business Logic (app/dashboard.py, app/calculations.py)
    ↓
-PostgreSQL / SQLite
+SQLAlchemy (app/models.py)
+   ↓
+SQLite (Standard) / PostgreSQL (optional)
 
 Technologie-Stack
 Bereich	Technologie
@@ -90,65 +92,71 @@ Backend	Flask
 ORM	SQLAlchemy
 Datenbank	PostgreSQL / SQLite
 Frontend	HTML, CSS, JS
-Packaging	PyInstaller (.exe)
+Container	Docker / docker-compose
+CI/CD	Jenkins
 
 Projektstruktur
-legal_lab_strafbefehl_mvp/
+Prozess-Simulator/
 │
 ├── app/
-│   ├── app.py
-│   ├── models.py
-│   ├── dashboard.py
+│   ├── __init__.py          # create_app() – kanonische App-Factory
+│   ├── models.py            # SQLAlchemy-Modelle
+│   ├── dashboard.py         # Kennzahlen/Engpass-Logik
+│   ├── calculations.py
+│   ├── simulation.py
+│   ├── routes/              # Blueprints: main, organization, process
+│   ├── services/            # Service-Schicht (Datenzugriff)
 │   ├── templates/
 │   └── static/
 │
-├── run.py
-├── requirements.txt
-└── .venv/
+├── tests/                   # Smoke-Tests (pytest)
+├── deploy/                  # Server-/Deploy-Konfiguration
+├── scripts/legacy/          # archivierte Hackathon-Migrationen
+├── docs/legacy/             # archivierte Hackathon-Doku
+├── run.py                   # Einstiegspunkt (Gunicorn: run:app)
+├── init_db.py               # DB anlegen + Demo-Daten seeden
+├── Dockerfile
+├── docker-compose.yml
+├── Jenkinsfile
+└── requirements.txt
 
-Setup (Development)
-1. Clone
-git clone <repo-url>
-cd legal_lab_strafbefehl_mvp
-2. Virtual Environment
+## Setup & Betrieb
+
+### Variante A — Lokal mit Docker (empfohlen für schnellen Start)
+
+```bash
+docker compose up --build
+```
+
+Beim ersten Start wird automatisch eine SQLite-Datenbank angelegt und mit
+Demo-Daten befüllt. App öffnen: <http://localhost:5000>
+
+PostgreSQL statt SQLite testen:
+
+```bash
+# DATABASE_URL in einer .env setzen (siehe .env.example), dann:
+docker compose --profile pg up --build
+```
+
+### Variante B — Ohne Docker (venv)
+
+```bash
 python -m venv .venv
-3. Aktivieren
-
-Windows
-
-.venv\Scripts\activate
-
-Mac/Linux
-
-source .venv/bin/activate
-
-4. Dependencies
+# Windows:        .venv\Scripts\activate
+# macOS/Linux:    source .venv/bin/activate
 pip install -r requirements.txt
-5. Environment
 
-.env erstellen:
+cp .env.example .env        # Standard ist SQLite – läuft ohne DB-Server
+python init_db.py           # DB anlegen + Demo-Daten
+python run.py               # http://127.0.0.1:5000
+```
 
-DATABASE_URL=postgresql+psycopg2://user:password@localhost:5432/prozess_simulator
-FLASK_SECRET_KEY=super-secret-key
-6. Start
-python run.py
+### Tests
 
-Öffnen:
-
-http://127.0.0.1:5000
-Desktop-Version (.exe)
-
-Für Nicht-Techniker:
-
-✔ kein Python nötig
-✔ keine Datenbankinstallation
-
-Build
-build_exe.bat
-Output
-dist/Prozess-Simulator/
-
-gesamten Ordner weitergeben
+```bash
+pip install -r tests/requirements.txt
+pytest tests/ -v
+```
 
 Fachliche Grundlagen
 

@@ -1,8 +1,13 @@
 .venv/
+venv/
 __pycache__/
 *.pyc
 .env
 *.db
+*.sqlite*
+instance/
 dist/
 build/
 *.exe
+.pytest_cache/
+reports/
