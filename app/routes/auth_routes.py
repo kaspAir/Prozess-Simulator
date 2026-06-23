@@ -4,7 +4,9 @@ from flask import (
 from flask_login import login_user, logout_user, login_required, current_user
 
 from app.models import db, User, Invitation
-from app.auth.service import verify_password, set_password, accept_invitation, set_active_account
+from app.auth.service import (
+    verify_password, set_password, accept_invitation, initialize_active_context,
+)
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -20,8 +22,7 @@ def login():
         user = User.query.filter_by(email=email).first()
         if user and verify_password(user, password):
             login_user(user)
-            session.pop("active_account_id", None)
-            session.pop("active_organization_id", None)
+            initialize_active_context(user)
             nxt = request.args.get("next") or request.form.get("next")
             if nxt and nxt.startswith("/"):
                 return redirect(nxt)
@@ -76,7 +77,7 @@ def accept_invite(token):
             return render_template("auth/accept_invite.html", invalid=True, token=token)
 
         login_user(user)
-        set_active_account(inv.account_id)
+        initialize_active_context(user)
         flash("Willkommen! Dein Zugang wurde erstellt.", "success")
         return redirect(url_for("main.dashboard"))
 

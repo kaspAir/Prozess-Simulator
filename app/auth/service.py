@@ -50,6 +50,24 @@ def active_organization_id():
     return session.get("active_organization_id")
 
 
+def initialize_active_context(user):
+    """Nach dem Login: aktiven Account setzen und – falls das Mitglied KEINE
+    accountweite Rolle hat – eine Standard-Organisation aus seinen pro-Org-
+    Zuweisungen vorwaehlen, damit die Berechtigungen sofort greifen."""
+    membership = Membership.query.filter_by(user_id=user.id).first()
+    if membership is None:
+        session.pop("active_account_id", None)
+        session.pop("active_organization_id", None)
+        return
+    set_active_account(membership.account_id)  # setzt Account, leert Org
+    has_account_wide = any(a.organization_id is None for a in membership.assignments)
+    if not has_account_wide:
+        per_org = next((a.organization_id for a in membership.assignments
+                        if a.organization_id is not None), None)
+        if per_org:
+            set_active_organization(per_org)
+
+
 # ── Mitgliedschaft / Permissions ───────────────────────────────────────────
 def _membership(user, account_id):
     if not account_id:

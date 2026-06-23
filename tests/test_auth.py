@@ -33,6 +33,29 @@ def test_admin_creates_member_with_password(app, client):
     assert r.status_code == 302 and "/dashboard" in r.headers["Location"]
 
 
+def test_per_org_member_can_login_and_view_dashboard(app, client):
+    """Mitglied mit NUR pro-Org-Rolle muss nach Login das Dashboard sehen
+    (Standard-Organisation wird gesetzt)."""
+    make_account_with_role(app, ACCOUNT_ADMIN_ROLE, TEMPLATE_ROLES[ACCOUNT_ADMIN_ROLE],
+                           email="admin@test.ch")
+    login(client, "admin@test.ch")
+    with app.app_context():
+        from app.models import db, Account, Organization, AccessRole, AccessRolePermission
+        acc = Account.query.first()
+        org = Organization(name="OrgA", account_id=acc.id); db.session.add(org); db.session.flush()
+        vr = AccessRole(account_id=acc.id, name="Viewer"); db.session.add(vr); db.session.flush()
+        db.session.add(AccessRolePermission(access_role_id=vr.id, permission_key=P_DASHBOARD_VIEW))
+        db.session.commit()
+        org_id, role_id = org.id, vr.id
+    client.post("/admin/members/create", data={
+        "name": "Per", "email": "per@test.ch", "password": "perpass123",
+        "access_role_id": role_id, "organization_id": org_id}, follow_redirects=True)
+
+    c2 = app.test_client()
+    c2.post("/login", data={"email": "per@test.ch", "password": "perpass123"}, follow_redirects=True)
+    assert c2.get("/dashboard").status_code == 200
+
+
 def test_self_password_change(app, client):
     make_account_with_role(app, "Viewer", {P_DASHBOARD_VIEW},
                            email="v@test.ch", password="oldpass123")
