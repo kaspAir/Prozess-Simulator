@@ -65,10 +65,11 @@ pipeline {
                             git remote set-url origin ${REPO_URL}
                             git fetch origin
                             git reset --hard origin/main
-                            [ -d .venv ] || python3 -m venv .venv
+                            if [ ! -d .venv ]; then python3 -m pip install --user -q virtualenv && python3 -m virtualenv .venv; fi
+                            if [ ! -x .venv/bin/python ]; then echo "FEHLER: venv konnte nicht erstellt werden"; exit 1; fi
                             . .venv/bin/activate
                             pip install -r requirements.txt -q
-                            set -a; [ -f .env ] && . ./.env; set +a
+                            if [ -f .env ]; then set -a; . ./.env; set +a; fi
                             [ -f data/prozess_simulator.db ] || python init_db.py
                             PID_FILE=\$HOME/tmp/gunicorn-pros-prod.pid
                             [ -f "\$PID_FILE" ] && kill \$(cat "\$PID_FILE") 2>/dev/null || true
@@ -98,10 +99,11 @@ pipeline {
                             git remote set-url origin ${REPO_URL}
                             git fetch origin
                             git reset --hard origin/integration
-                            [ -d .venv ] || python3 -m venv .venv
+                            if [ ! -d .venv ]; then python3 -m pip install --user -q virtualenv && python3 -m virtualenv .venv; fi
+                            if [ ! -x .venv/bin/python ]; then echo "FEHLER: venv konnte nicht erstellt werden"; exit 1; fi
                             . .venv/bin/activate
                             pip install -r requirements.txt -q
-                            set -a; [ -f .env ] && . ./.env; set +a
+                            if [ -f .env ]; then set -a; . ./.env; set +a; fi
                             [ -f data/prozess_simulator.db ] || python init_db.py
                             PID_FILE=\$HOME/tmp/gunicorn-pros-int.pid
                             [ -f "\$PID_FILE" ] && kill \$(cat "\$PID_FILE") 2>/dev/null || true
@@ -131,10 +133,11 @@ pipeline {
                             git remote set-url origin ${REPO_URL}
                             git fetch origin
                             git reset --hard origin/test
-                            [ -d .venv ] || python3 -m venv .venv
+                            if [ ! -d .venv ]; then python3 -m pip install --user -q virtualenv && python3 -m virtualenv .venv; fi
+                            if [ ! -x .venv/bin/python ]; then echo "FEHLER: venv konnte nicht erstellt werden"; exit 1; fi
                             . .venv/bin/activate
                             pip install -r requirements.txt -q
-                            set -a; [ -f .env ] && . ./.env; set +a
+                            if [ -f .env ]; then set -a; . ./.env; set +a; fi
                             [ -f data/prozess_simulator.db ] || python init_db.py
                             PID_FILE=\$HOME/tmp/gunicorn-pros-test.pid
                             [ -f "\$PID_FILE" ] && kill \$(cat "\$PID_FILE") 2>/dev/null || true

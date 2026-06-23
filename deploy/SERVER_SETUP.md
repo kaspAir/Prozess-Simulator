@@ -23,6 +23,12 @@ Die Pipeline initialisiert das Repo direkt im App-Verzeichnis (`git init` +
 das Verzeichnis und die `.env` existieren – `.env`, `data/` und `logs/` bleiben
 als nicht versionierte Dateien beim Deploy erhalten. Beispiel für **prod**:
 
+> **venv auf Managed Hosting:** `python3 -m venv` funktioniert dort nicht
+> (kein `ensurepip`/`python3-venv`, kein root). Die Pipeline erstellt das venv
+> daher mit **`virtualenv`** (`python3 -m pip install --user virtualenv` →
+> `python3 -m virtualenv .venv`). Innerhalb des aktivierten venv existiert dann
+> auch `python` (auf dem Host selbst gibt es nur `python3`).
+
 ```bash
 APP_DIR=$HOME/prozess-simulator        # bzw. -test / -int
 mkdir -p "$APP_DIR/data" "$APP_DIR/logs" "$HOME/tmp"
