@@ -56,6 +56,21 @@ def test_per_org_member_can_login_and_view_dashboard(app, client):
     assert c2.get("/dashboard").status_code == 200
 
 
+def test_login_is_recorded(app, client):
+    make_account_with_role(app, ACCOUNT_ADMIN_ROLE, TEMPLATE_ROLES[ACCOUNT_ADMIN_ROLE],
+                           email="admin@test.ch")
+    client.post("/login", data={"email": "admin@test.ch", "password": "wrong"})  # Fehlversuch
+    login(client, "admin@test.ch")  # Erfolg
+    with app.app_context():
+        from app.models import LoginEvent
+        evs = LoginEvent.query.all()
+        assert any(e.success for e in evs)
+        assert any(not e.success for e in evs)
+        assert all(e.host for e in evs)  # Domain erfasst
+    # Account-Admin darf das Protokoll sehen
+    assert client.get("/admin/logins").status_code == 200
+
+
 def test_self_password_change(app, client):
     make_account_with_role(app, "Viewer", {P_DASHBOARD_VIEW},
                            email="v@test.ch", password="oldpass123")
