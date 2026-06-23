@@ -65,8 +65,8 @@ pipeline {
                             git remote set-url origin ${REPO_URL}
                             git fetch origin
                             git reset --hard origin/main
-                            if [ ! -d .venv ]; then python3 -m pip install --user -q virtualenv && python3 -m virtualenv .venv; fi
-                            if [ ! -x .venv/bin/python ]; then echo "FEHLER: venv konnte nicht erstellt werden"; exit 1; fi
+                            if [ ! -f .venv/bin/activate ]; then rm -rf .venv; { python3 -m pip install --user -q virtualenv || pip install --user -q virtualenv; }; { python3 -m virtualenv .venv || \$HOME/.local/bin/virtualenv .venv; }; fi
+                            if [ ! -f .venv/bin/activate ]; then echo "FEHLER: venv konnte nicht erstellt werden (.venv/bin/activate fehlt)"; exit 1; fi
                             . .venv/bin/activate
                             pip install -r requirements.txt -q
                             if [ -f .env ]; then set -a; . ./.env; set +a; fi
@@ -99,8 +99,8 @@ pipeline {
                             git remote set-url origin ${REPO_URL}
                             git fetch origin
                             git reset --hard origin/integration
-                            if [ ! -d .venv ]; then python3 -m pip install --user -q virtualenv && python3 -m virtualenv .venv; fi
-                            if [ ! -x .venv/bin/python ]; then echo "FEHLER: venv konnte nicht erstellt werden"; exit 1; fi
+                            if [ ! -f .venv/bin/activate ]; then rm -rf .venv; { python3 -m pip install --user -q virtualenv || pip install --user -q virtualenv; }; { python3 -m virtualenv .venv || \$HOME/.local/bin/virtualenv .venv; }; fi
+                            if [ ! -f .venv/bin/activate ]; then echo "FEHLER: venv konnte nicht erstellt werden (.venv/bin/activate fehlt)"; exit 1; fi
                             . .venv/bin/activate
                             pip install -r requirements.txt -q
                             if [ -f .env ]; then set -a; . ./.env; set +a; fi
@@ -133,8 +133,8 @@ pipeline {
                             git remote set-url origin ${REPO_URL}
                             git fetch origin
                             git reset --hard origin/test
-                            if [ ! -d .venv ]; then python3 -m pip install --user -q virtualenv && python3 -m virtualenv .venv; fi
-                            if [ ! -x .venv/bin/python ]; then echo "FEHLER: venv konnte nicht erstellt werden"; exit 1; fi
+                            if [ ! -f .venv/bin/activate ]; then rm -rf .venv; { python3 -m pip install --user -q virtualenv || pip install --user -q virtualenv; }; { python3 -m virtualenv .venv || \$HOME/.local/bin/virtualenv .venv; }; fi
+                            if [ ! -f .venv/bin/activate ]; then echo "FEHLER: venv konnte nicht erstellt werden (.venv/bin/activate fehlt)"; exit 1; fi
                             . .venv/bin/activate
                             pip install -r requirements.txt -q
                             if [ -f .env ]; then set -a; . ./.env; set +a; fi
