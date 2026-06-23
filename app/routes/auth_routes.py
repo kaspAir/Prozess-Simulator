@@ -3,8 +3,8 @@ from flask import (
 )
 from flask_login import login_user, logout_user, login_required, current_user
 
-from app.models import User, Invitation
-from app.auth.service import verify_password, accept_invitation, set_active_account
+from app.models import db, User, Invitation
+from app.auth.service import verify_password, set_password, accept_invitation, set_active_account
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -29,6 +29,24 @@ def login():
         flash("E-Mail oder Passwort falsch.", "error")
 
     return render_template("auth/login.html", next=request.args.get("next", ""))
+
+
+@auth_bp.route("/account", methods=["GET", "POST"])
+@login_required
+def account():
+    if request.method == "POST":
+        current = request.form.get("current_password") or ""
+        new = request.form.get("new_password") or ""
+        if not verify_password(current_user, current):
+            flash("Aktuelles Passwort ist falsch.", "error")
+        elif len(new) < 8:
+            flash("Neues Passwort muss mindestens 8 Zeichen haben.", "error")
+        else:
+            set_password(current_user, new)
+            db.session.commit()
+            flash("Passwort geändert.", "success")
+        return redirect(url_for("auth.account"))
+    return render_template("auth/account.html")
 
 
 @auth_bp.route("/logout")
