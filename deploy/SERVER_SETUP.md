@@ -25,17 +25,22 @@ müssen nur Verzeichnisse und die `.env` existieren. Beispiel für **prod**:
 APP_DIR=$HOME/prozess-simulator        # bzw. -test / -int
 mkdir -p "$APP_DIR/data" "$APP_DIR/logs" "$HOME/tmp"
 
-cat > "$APP_DIR/.env" <<'EOF'
+# Hinweis: $APP_DIR muss hier expandieren -> KEINE Quotes um EOF.
+cat > "$APP_DIR/.env" <<EOF
 FLASK_SECRET_KEY=<langer-zufaelliger-wert>
-DATABASE_URL=sqlite:///data/prozess_simulator.db
+DATABASE_URL=sqlite:///$APP_DIR/data/prozess_simulator.db
 FLASK_DEBUG=0
 EOF
 ```
 
 Für `-test` und `-int` analog (eigener `FLASK_SECRET_KEY`, eigenes `data/`).
 
-> `DATABASE_URL` relativ zu `data/` → jede Umgebung hat ihre eigene SQLite-DB.
-> Beim ersten Deploy wird sie via `python init_db.py` mit Demo-Daten angelegt.
+> **Wichtig – absoluter DB-Pfad:** Flask-SQLAlchemy löst *relative* SQLite-Pfade
+> gegen den `instance/`-Ordner auf, der Deploy-Check (`[ -f data/... ]`) aber gegen
+> das App-Verzeichnis. Ein relativer Pfad würde beide auseinanderlaufen lassen –
+> `init_db.py` (mit `drop_all`) liefe dann bei jedem Deploy und löschte die Daten.
+> Deshalb den **absoluten** Pfad `sqlite:///$APP_DIR/data/...` verwenden.
+> Beim ersten Deploy wird die DB via `python init_db.py` mit Demo-Daten angelegt.
 
 ## Jenkins-Jobs
 
