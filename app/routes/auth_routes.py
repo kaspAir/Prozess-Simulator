@@ -3,8 +3,10 @@ from flask import (
 )
 from flask_login import login_user, logout_user, login_required, current_user
 
-from app.models import User, Invitation
-from app.auth.service import verify_password, accept_invitation, set_active_account
+from app.models import db, User, Invitation
+from app.auth.service import (
+    verify_password, set_password, accept_invitation, initialize_active_context,
+)
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -20,8 +22,7 @@ def login():
         user = User.query.filter_by(email=email).first()
         if user and verify_password(user, password):
             login_user(user)
-            session.pop("active_account_id", None)
-            session.pop("active_organization_id", None)
+            initialize_active_context(user)
             nxt = request.args.get("next") or request.form.get("next")
             if nxt and nxt.startswith("/"):
                 return redirect(nxt)
@@ -29,6 +30,24 @@ def login():
         flash("E-Mail oder Passwort falsch.", "error")
 
     return render_template("auth/login.html", next=request.args.get("next", ""))
+
+
+@auth_bp.route("/account", methods=["GET", "POST"])
+@login_required
+def account():
+    if request.method == "POST":
+        current = request.form.get("current_password") or ""
+        new = request.form.get("new_password") or ""
+        if not verify_password(current_user, current):
+            flash("Aktuelles Passwort ist falsch.", "error")
+        elif len(new) < 8:
+            flash("Neues Passwort muss mindestens 8 Zeichen haben.", "error")
+        else:
+            set_password(current_user, new)
+            db.session.commit()
+            flash("Passwort geändert.", "success")
+        return redirect(url_for("auth.account"))
+    return render_template("auth/account.html")
 
 
 @auth_bp.route("/logout")
@@ -58,7 +77,7 @@ def accept_invite(token):
             return render_template("auth/accept_invite.html", invalid=True, token=token)
 
         login_user(user)
-        set_active_account(inv.account_id)
+        initialize_active_context(user)
         flash("Willkommen! Dein Zugang wurde erstellt.", "success")
         return redirect(url_for("main.dashboard"))
 
