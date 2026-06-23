@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width:1000px;margin:0 auto;padding:0 16px;">
+  <h2>Mitglieder – {{ account.name }}</h2>
+
+  <h3>Mitglieder & Rollen</h3>
+  <table style="width:100%;border-collapse:collapse;">
+    <thead><tr style="text-align:left;border-bottom:2px solid #e5e7eb;">
+      <th style="padding:6px;">Benutzer</th><th>Zugewiesene Rollen</th><th>Rolle hinzufügen</th>
+    </tr></thead>
+    <tbody>
+    {% for m in memberships %}
+      <tr style="border-bottom:1px solid #eee;vertical-align:top;">
+        <td style="padding:8px;">
+          <strong>{{ m.user.name }}</strong><br>
+          <span style="color:#666;">{{ m.user.email }}</span>
+          {% if m.user.is_super_admin %}<br><em>Super-Admin</em>{% endif %}
+        </td>
+        <td style="padding:8px;">
+          {% for asg in m.assignments %}
+            <div style="margin:2px 0;">
+              {{ asg.access_role.name }}
+              <span style="color:#666;">
+                {% if asg.organization_id %}@ {{ asg.organization.name }}{% else %}(accountweit){% endif %}
+              </span>
+              <form method="post" action="{{ url_for('admin.unassign_role', assignment_id=asg.id) }}" style="display:inline;margin:0;">
+                <button type="submit" title="entfernen" style="border:none;background:none;color:#b91c1c;cursor:pointer;">✕</button>
+              </form>
+            </div>
+          {% else %}
+            <em style="color:#999;">keine</em>
+          {% endfor %}
+        </td>
+        <td style="padding:8px;">
+          <form method="post" action="{{ url_for('admin.assign_role') }}" style="margin:0;display:flex;gap:4px;flex-wrap:wrap;">
+            <input type="hidden" name="membership_id" value="{{ m.id }}">
+            <select name="access_role_id" required>
+              {% for r in roles %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+            </select>
+            <select name="organization_id">
+              <option value="">accountweit</option>
+              {% for o in orgs %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}
+            </select>
+            <button type="submit">+</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <h3 style="margin-top:28px;">Mitglied einladen</h3>
+  <form method="post" action="{{ url_for('admin.invite') }}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+    <label>E-Mail<br><input type="email" name="email" required></label>
+    <label>Rolle<br>
+      <select name="access_role_id" required>
+        {% for r in roles %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Organisation<br>
+      <select name="organization_id">
+        <option value="">accountweit</option>
+        {% for o in orgs %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <button type="submit">Einladen</button>
+  </form>
+
+  {% if invitations %}
+  <h4 style="margin-top:20px;">Offene Einladungen</h4>
+  <ul>
+    {% for inv in invitations %}
+      <li>{{ inv.email }} – {{ inv.access_role.name }}
+        {% if inv.organization %}@ {{ inv.organization.name }}{% endif %}
+        <br><code style="font-size:.85em;">{{ url_for('auth.accept_invite', token=inv.token, _external=True) }}</code>
+      </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <h3 style="margin-top:28px;">Organisation anlegen</h3>
+  <form method="post" action="{{ url_for('admin.create_organization') }}" style="display:flex;gap:8px;align-items:flex-end;">
+    <label>Name<br><input type="text" name="name" required></label>
+    <button type="submit">Anlegen</button>
+  </form>
+</div>
+{% endblock %}

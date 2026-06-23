@@ -1,4 +1,7 @@
+from datetime import datetime, timedelta
+
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
 
 db = SQLAlchemy()
 
@@ -53,6 +56,7 @@ node_function = db.Table(
 class Activity(db.Model):
     __tablename__ = "activities"
     id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey("accounts.id"), nullable=True, index=True)
     name = db.Column(db.String(255), nullable=False)
     effort_minutes = db.Column(db.Float, nullable=False, default=0)
     legal_basis = db.Column(db.Text, nullable=True)
@@ -63,6 +67,7 @@ class Activity(db.Model):
 class Process(db.Model):
     __tablename__ = "processes"
     id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey("accounts.id"), nullable=True, index=True)
     name = db.Column(db.String(255), nullable=False)
     parent_process_id = db.Column(db.Integer, db.ForeignKey("processes.id"), nullable=True)
 
@@ -125,6 +130,7 @@ class Edge(db.Model):
 class Organization(db.Model):
     __tablename__ = "organizations"
     id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey("accounts.id"), nullable=True, index=True)
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text, nullable=True)
     units = db.relationship("OrgUnit", back_populates="organization", cascade="all, delete-orphan")
@@ -152,6 +158,7 @@ class OrgUnit(db.Model):
 class Role(db.Model):
     __tablename__ = "roles"
     id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey("accounts.id"), nullable=True, index=True)
     name = db.Column(db.String(255), nullable=False)
     parent_id = db.Column(db.Integer, db.ForeignKey("roles.id"), nullable=True)
     parent = db.relationship("Role", remote_side=[id], backref="children")
@@ -165,6 +172,7 @@ class Role(db.Model):
 class Function(db.Model):
     __tablename__ = "functions"
     id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey("accounts.id"), nullable=True, index=True)
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text, nullable=True)
     roles = db.relationship("Role", secondary=role_function, back_populates="functions")
@@ -175,6 +183,7 @@ class Function(db.Model):
 class Person(db.Model):
     __tablename__ = "persons"
     id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey("accounts.id"), nullable=True, index=True)
     name = db.Column(db.String(255), nullable=False)
     organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"), nullable=True)
     organization = db.relationship("Organization", backref="persons")
@@ -183,4 +192,104 @@ class Person(db.Model):
     active = db.Column(db.Boolean, nullable=False, default=True)
     roles = db.relationship("Role", secondary=person_role, back_populates="persons")
     functions = db.relationship("Function", secondary=person_function, back_populates="persons")
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Auth / Multi-Tenant RBAC  (getrennt von den Simulations-Entitaeten oben)
+# ─────────────────────────────────────────────────────────────────────────
+
+class Account(db.Model):
+    __tablename__ = "accounts"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    memberships = db.relationship("Membership", back_populates="account", cascade="all, delete-orphan")
+    access_roles = db.relationship("AccessRole", back_populates="account", cascade="all, delete-orphan")
+    organizations = db.relationship("Organization", backref="account")
+
+
+class User(UserMixin, db.Model):
+    __tablename__ = "users"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    email = db.Column(db.String(255), nullable=False, unique=True, index=True)
+    password_hash = db.Column(db.String(255), nullable=True)
+    is_super_admin = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    memberships = db.relationship("Membership", back_populates="user", cascade="all, delete-orphan")
+
+
+class Membership(db.Model):
+    __tablename__ = "memberships"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    account_id = db.Column(db.Integer, db.ForeignKey("accounts.id"), nullable=False, index=True)
+
+    user = db.relationship("User", back_populates="memberships")
+    account = db.relationship("Account", back_populates="memberships")
+    assignments = db.relationship("RoleAssignment", back_populates="membership", cascade="all, delete-orphan")
+
+    __table_args__ = (db.UniqueConstraint("user_id", "account_id", name="uq_membership_user_account"),)
+
+
+class AccessRole(db.Model):
+    """Berechtigungs-Rolle (frei definierbar, pro Account). Nicht zu verwechseln
+    mit der Simulations-`Role` (fachliche Stelle)."""
+    __tablename__ = "access_roles"
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey("accounts.id"), nullable=False, index=True)
+    name = db.Column(db.String(255), nullable=False)
+    is_template = db.Column(db.Boolean, nullable=False, default=False)
+
+    account = db.relationship("Account", back_populates="access_roles")
+    permissions = db.relationship("AccessRolePermission", back_populates="access_role", cascade="all, delete-orphan")
+    assignments = db.relationship("RoleAssignment", back_populates="access_role", cascade="all, delete-orphan")
+
+    @property
+    def permission_keys(self):
+        return {p.permission_key for p in self.permissions}
+
+
+class AccessRolePermission(db.Model):
+    __tablename__ = "access_role_permissions"
+    id = db.Column(db.Integer, primary_key=True)
+    access_role_id = db.Column(db.Integer, db.ForeignKey("access_roles.id"), nullable=False, index=True)
+    permission_key = db.Column(db.String(80), nullable=False)
+
+    access_role = db.relationship("AccessRole", back_populates="permissions")
+
+    __table_args__ = (db.UniqueConstraint("access_role_id", "permission_key", name="uq_role_permission"),)
+
+
+class RoleAssignment(db.Model):
+    __tablename__ = "role_assignments"
+    id = db.Column(db.Integer, primary_key=True)
+    membership_id = db.Column(db.Integer, db.ForeignKey("memberships.id"), nullable=False, index=True)
+    access_role_id = db.Column(db.Integer, db.ForeignKey("access_roles.id"), nullable=False, index=True)
+    # organization_id NULL  -> Rolle gilt accountweit (alle Organisationen)
+    # organization_id gesetzt -> Rolle gilt nur fuer diese Organisation
+    organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"), nullable=True, index=True)
+
+    membership = db.relationship("Membership", back_populates="assignments")
+    access_role = db.relationship("AccessRole", back_populates="assignments")
+    organization = db.relationship("Organization")
+
+
+class Invitation(db.Model):
+    __tablename__ = "invitations"
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey("accounts.id"), nullable=False, index=True)
+    email = db.Column(db.String(255), nullable=False)
+    access_role_id = db.Column(db.Integer, db.ForeignKey("access_roles.id"), nullable=False)
+    organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"), nullable=True)
+    token = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    status = db.Column(db.String(20), nullable=False, default="pending")  # pending | accepted | revoked
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, default=lambda: datetime.utcnow() + timedelta(days=14))
+
+    account = db.relationship("Account")
+    access_role = db.relationship("AccessRole")
+    organization = db.relationship("Organization")
 
