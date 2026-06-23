@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width:1000px;margin:0 auto;padding:0 16px;">
+  <h2>Login-Protokoll</h2>
+  <p style="color:#666;">
+    {% if is_super %}Alle Anmeldungen (neueste zuerst, max. 500).
+    {% else %}Anmeldungen der Mitglieder dieses Accounts (neueste zuerst, max. 500).{% endif %}
+    Zeit in UTC.
+  </p>
+  <table style="width:100%;border-collapse:collapse;">
+    <thead><tr style="text-align:left;border-bottom:2px solid #e5e7eb;">
+      <th style="padding:6px;">Zeitpunkt (UTC)</th>
+      <th>Benutzer / E-Mail</th>
+      <th>Domain</th>
+      <th>IP</th>
+      <th>Status</th>
+    </tr></thead>
+    <tbody>
+    {% for e in events %}
+      <tr style="border-bottom:1px solid #eee;">
+        <td style="padding:6px;white-space:nowrap;">{{ e.created_at.strftime('%d.%m.%Y %H:%M:%S') if e.created_at else '' }}</td>
+        <td style="padding:6px;">
+          {% if e.user %}<strong>{{ e.user.name }}</strong><br>{% endif %}
+          <span style="color:#666;">{{ e.email or '—' }}</span>
+        </td>
+        <td style="padding:6px;">{{ e.host or '—' }}</td>
+        <td style="padding:6px;">{{ e.ip or '—' }}</td>
+        <td style="padding:6px;">
+          {% if e.success %}<span style="color:#15803d;">✓ Erfolg</span>
+          {% else %}<span style="color:#b91c1c;">✕ Fehlversuch</span>{% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" style="padding:8px;color:#999;">Noch keine Anmeldungen protokolliert.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

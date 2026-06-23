@@ -293,3 +293,17 @@ class Invitation(db.Model):
     access_role = db.relationship("AccessRole")
     organization = db.relationship("Organization")
 
+
+class LoginEvent(db.Model):
+    """Protokolliert Anmeldeversuche (Erfolg/Fehlschlag) inkl. Domain und IP."""
+    __tablename__ = "login_events"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    email = db.Column(db.String(255), nullable=True)
+    success = db.Column(db.Boolean, nullable=False, default=True)
+    host = db.Column(db.String(255), nullable=True)   # z. B. ditwi.ch / test.ditwi.ch
+    ip = db.Column(db.String(64), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    user = db.relationship("User")
+
