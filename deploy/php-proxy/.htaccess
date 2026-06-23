@@ -1,0 +1,4 @@
+# Alle Requests durch den PHP-Reverse-Proxy leiten (Front-Controller).
+RewriteEngine On
+RewriteCond %{REQUEST_URI} !^/index\.php$
+RewriteRule ^ index.php [QSA,L]
