@@ -18,8 +18,10 @@ Reverse-Proxy/HTTPS des Hosting-Panels.
 
 ## Einmalige Schritte pro Umgebung
 
-Die Pipeline klont das Repo selbst und legt das venv automatisch an. Vorher
-müssen nur Verzeichnisse und die `.env` existieren. Beispiel für **prod**:
+Die Pipeline initialisiert das Repo direkt im App-Verzeichnis (`git init` +
+`fetch` + `reset --hard`) und legt das venv automatisch an. Vorher müssen nur
+das Verzeichnis und die `.env` existieren – `.env`, `data/` und `logs/` bleiben
+als nicht versionierte Dateien beim Deploy erhalten. Beispiel für **prod**:
 
 ```bash
 APP_DIR=$HOME/prozess-simulator        # bzw. -test / -int

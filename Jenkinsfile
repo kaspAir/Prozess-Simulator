@@ -59,15 +59,15 @@ pipeline {
                     sh """
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_HOST} '
                             APP_DIR=\$HOME/prozess-simulator
-                            if [ ! -d "\$APP_DIR/.git" ]; then git clone ${REPO_URL} "\$APP_DIR"; fi
+                            mkdir -p "\$APP_DIR/data" "\$APP_DIR/logs" \$HOME/tmp
                             cd "\$APP_DIR"
+                            if [ ! -d .git ]; then git init -q && git remote add origin ${REPO_URL}; fi
                             git remote set-url origin ${REPO_URL}
                             git fetch origin
                             git reset --hard origin/main
                             [ -d .venv ] || python3 -m venv .venv
                             . .venv/bin/activate
                             pip install -r requirements.txt -q
-                            mkdir -p "\$APP_DIR/data" "\$APP_DIR/logs" \$HOME/tmp
                             set -a; [ -f .env ] && . ./.env; set +a
                             [ -f data/prozess_simulator.db ] || python init_db.py
                             PID_FILE=\$HOME/tmp/gunicorn-pros-prod.pid
@@ -92,15 +92,15 @@ pipeline {
                     sh """
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_HOST} '
                             APP_DIR=\$HOME/prozess-simulator-int
-                            if [ ! -d "\$APP_DIR/.git" ]; then git clone ${REPO_URL} "\$APP_DIR"; fi
+                            mkdir -p "\$APP_DIR/data" "\$APP_DIR/logs" \$HOME/tmp
                             cd "\$APP_DIR"
+                            if [ ! -d .git ]; then git init -q && git remote add origin ${REPO_URL}; fi
                             git remote set-url origin ${REPO_URL}
                             git fetch origin
                             git reset --hard origin/integration
                             [ -d .venv ] || python3 -m venv .venv
                             . .venv/bin/activate
                             pip install -r requirements.txt -q
-                            mkdir -p "\$APP_DIR/data" "\$APP_DIR/logs" \$HOME/tmp
                             set -a; [ -f .env ] && . ./.env; set +a
                             [ -f data/prozess_simulator.db ] || python init_db.py
                             PID_FILE=\$HOME/tmp/gunicorn-pros-int.pid
@@ -125,15 +125,15 @@ pipeline {
                     sh """
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_HOST} '
                             APP_DIR=\$HOME/prozess-simulator-test
-                            if [ ! -d "\$APP_DIR/.git" ]; then git clone ${REPO_URL} "\$APP_DIR"; fi
+                            mkdir -p "\$APP_DIR/data" "\$APP_DIR/logs" \$HOME/tmp
                             cd "\$APP_DIR"
+                            if [ ! -d .git ]; then git init -q && git remote add origin ${REPO_URL}; fi
                             git remote set-url origin ${REPO_URL}
                             git fetch origin
                             git reset --hard origin/test
                             [ -d .venv ] || python3 -m venv .venv
                             . .venv/bin/activate
                             pip install -r requirements.txt -q
-                            mkdir -p "\$APP_DIR/data" "\$APP_DIR/logs" \$HOME/tmp
                             set -a; [ -f .env ] && . ./.env; set +a
                             [ -f data/prozess_simulator.db ] || python init_db.py
                             PID_FILE=\$HOME/tmp/gunicorn-pros-test.pid
