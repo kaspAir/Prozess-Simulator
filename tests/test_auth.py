@@ -6,6 +6,71 @@ from app.auth.permissions import (
 from tests.conftest import make_account_with_role, login
 
 
+def _add_viewer_role(app):
+    from app.models import db, Account, AccessRole, AccessRolePermission
+    with app.app_context():
+        acc = Account.query.first()
+        vr = AccessRole(account_id=acc.id, name="Viewer")
+        db.session.add(vr); db.session.flush()
+        db.session.add(AccessRolePermission(access_role_id=vr.id, permission_key=P_DASHBOARD_VIEW))
+        db.session.commit()
+        return vr.id
+
+
+def test_admin_creates_member_with_password(app, client):
+    make_account_with_role(app, ACCOUNT_ADMIN_ROLE, TEMPLATE_ROLES[ACCOUNT_ADMIN_ROLE],
+                           email="admin@test.ch")
+    login(client, "admin@test.ch")
+    role_id = _add_viewer_role(app)
+    resp = client.post("/admin/members/create", data={
+        "name": "Bob", "email": "bob@test.ch", "password": "bobpass123",
+        "access_role_id": role_id}, follow_redirects=True)
+    assert resp.status_code == 200
+    # Bob kann sich anmelden
+    c2 = app.test_client()
+    r = c2.post("/login", data={"email": "bob@test.ch", "password": "bobpass123"},
+                follow_redirects=False)
+    assert r.status_code == 302 and "/dashboard" in r.headers["Location"]
+
+
+def test_per_org_member_can_login_and_view_dashboard(app, client):
+    """Mitglied mit NUR pro-Org-Rolle muss nach Login das Dashboard sehen
+    (Standard-Organisation wird gesetzt)."""
+    make_account_with_role(app, ACCOUNT_ADMIN_ROLE, TEMPLATE_ROLES[ACCOUNT_ADMIN_ROLE],
+                           email="admin@test.ch")
+    login(client, "admin@test.ch")
+    with app.app_context():
+        from app.models import db, Account, Organization, AccessRole, AccessRolePermission
+        acc = Account.query.first()
+        org = Organization(name="OrgA", account_id=acc.id); db.session.add(org); db.session.flush()
+        vr = AccessRole(account_id=acc.id, name="Viewer"); db.session.add(vr); db.session.flush()
+        db.session.add(AccessRolePermission(access_role_id=vr.id, permission_key=P_DASHBOARD_VIEW))
+        db.session.commit()
+        org_id, role_id = org.id, vr.id
+    client.post("/admin/members/create", data={
+        "name": "Per", "email": "per@test.ch", "password": "perpass123",
+        "access_role_id": role_id, "organization_id": org_id}, follow_redirects=True)
+
+    c2 = app.test_client()
+    c2.post("/login", data={"email": "per@test.ch", "password": "perpass123"}, follow_redirects=True)
+    assert c2.get("/dashboard").status_code == 200
+
+
+def test_self_password_change(app, client):
+    make_account_with_role(app, "Viewer", {P_DASHBOARD_VIEW},
+                           email="v@test.ch", password="oldpass123")
+    login(client, "v@test.ch", "oldpass123")
+    r = client.post("/account", data={"current_password": "oldpass123",
+                                      "new_password": "newpass456"}, follow_redirects=True)
+    assert r.status_code == 200
+    c2 = app.test_client()
+    # altes Passwort schlaegt fehl (Login-Seite, 200), neues funktioniert (302)
+    assert c2.post("/login", data={"email": "v@test.ch", "password": "oldpass123"}).status_code == 200
+    r2 = c2.post("/login", data={"email": "v@test.ch", "password": "newpass456"},
+                 follow_redirects=False)
+    assert r2.status_code == 302
+
+
 # ── Permission-Enforcement ─────────────────────────────────────────────────
 def test_viewer_can_view_but_not_edit(app, client):
     make_account_with_role(app, "Viewer", {P_DASHBOARD_VIEW}, email="viewer@test.ch")
@@ -66,6 +131,8 @@ def test_per_organization_scope(app):
 
         assert user_has_permission(user, P_PERSONS_MANAGE, organization_id=org_a.id, account=acc) is True
         assert user_has_permission(user, P_PERSONS_MANAGE, organization_id=org_b.id, account=acc) is False
+        # ohne konkreten Org-Kontext genuegt das Recht in irgendeiner Org (robust)
+        assert user_has_permission(user, P_PERSONS_MANAGE, organization_id=None, account=acc) is True
 
 
 # ── Einladung ──────────────────────────────────────────────────────────────
