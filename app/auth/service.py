@@ -3,7 +3,7 @@ Decorator, Einladungen."""
 import secrets
 from functools import wraps
 
-from flask import session, abort, has_request_context
+from flask import session, abort, has_request_context, request
 from flask_login import current_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -119,6 +119,29 @@ def require_permission(permission_key):
             return fn(*args, **kwargs)
         return wrapper
     return decorator
+
+
+# ── Login-Protokoll ──────────────────────────────────────────────────────
+def client_ip():
+    if not has_request_context():
+        return None
+    xff = request.headers.get("X-Forwarded-For")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.headers.get("X-Real-IP") or request.remote_addr
+
+
+def record_login(user, email, success):
+    from app.models import LoginEvent
+    ev = LoginEvent(
+        user_id=user.id if user else None,
+        email=(email or "").strip().lower() or None,
+        success=success,
+        host=request.host if has_request_context() else None,
+        ip=client_ip(),
+    )
+    db.session.add(ev)
+    db.session.commit()
 
 
 # ── Passwoerter ────────────────────────────────────────────────────────────

@@ -61,6 +61,9 @@
         {% if current_user_can('account.members.manage') %}
             <a href="{{ url_for('admin.members') }}">Mitglieder</a>
         {% endif %}
+        {% if current_user.is_super_admin or current_user_can('account.members.manage') %}
+            <a href="{{ url_for('admin.logins') }}">Logins</a>
+        {% endif %}
         {% if current_user.is_super_admin %}
             <a href="{{ url_for('admin.accounts') }}">Accounts</a>
         {% endif %}

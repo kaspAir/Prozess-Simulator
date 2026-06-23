@@ -5,12 +5,13 @@ from flask_login import login_required, current_user
 
 from app.models import (
     db, Account, Organization, Membership, AccessRole, RoleAssignment, Invitation, User,
+    LoginEvent,
 )
 from app.auth.permissions import P_ACCOUNT_MEMBERS, ALL_PERMISSIONS
 from app.auth.service import (
     require_permission, current_account, current_account_id,
     set_active_account, set_active_organization, create_invitation,
-    is_last_account_admin, set_password,
+    is_last_account_admin, set_password, user_has_permission,
 )
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -185,6 +186,23 @@ def switch_account(account_id):
             abort(403)
     set_active_account(account_id)
     return redirect(url_for("main.dashboard"))
+
+
+# ── Login-Protokoll ────────────────────────────────────────────────────────
+@admin_bp.route("/logins")
+@login_required
+def logins():
+    q = LoginEvent.query.order_by(LoginEvent.created_at.desc())
+    if current_user.is_super_admin:
+        events = q.limit(500).all()
+    else:
+        if not user_has_permission(current_user, P_ACCOUNT_MEMBERS):
+            abort(403)
+        account = current_account()
+        member_ids = [m.user_id for m in Membership.query.filter_by(account_id=account.id).all()]
+        events = q.filter(LoginEvent.user_id.in_(member_ids or [0])).limit(500).all()
+    return render_template("admin/logins.html", events=events,
+                           is_super=current_user.is_super_admin)
 
 
 # ── Super-Admin: Übersicht aller Accounts ──────────────────────────────────
