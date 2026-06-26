@@ -1,9 +1,27 @@
 import os
+import sqlite3
+
 from dotenv import load_dotenv
 from flask import Flask, redirect, url_for, request
 from flask_login import current_user
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 
 from app.models import db
+
+
+# SQLite-Härtung: WAL erlaubt gleichzeitiges Lesen während eines Schreibers,
+# busy_timeout lässt Schreiber warten statt sofort "database is locked" zu werfen.
+# Greift nur für SQLite-Verbindungen (bei PostgreSQL wirkungslos/übersprungen).
+@event.listens_for(Engine, "connect")
+def _set_sqlite_pragmas(dbapi_connection, connection_record):
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        cur = dbapi_connection.cursor()
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.execute("PRAGMA busy_timeout=5000")
+        cur.execute("PRAGMA synchronous=NORMAL")
+        cur.execute("PRAGMA foreign_keys=ON")
+        cur.close()
 
 from app.routes.main_routes import main_bp
 from app.routes.organization_routes import organization_bp

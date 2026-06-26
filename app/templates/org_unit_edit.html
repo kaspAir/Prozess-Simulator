@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
+<p><a href="{{ url_for('organization.organization', org_id=organization.id) }}">← Zurück zur Organisation</a></p>
 <h2>Organisationseinheit bearbeiten – {{ organization.name }}</h2>
 
 <form method="post" class="form-card">
+    <input type="hidden" name="organization_id" value="{{ organization.id }}">
     <label>Name
         <input name="name" value="{{ unit.name or '' }}" required>
     </label>
@@ -11,7 +13,7 @@
         <select name="unit_type" id="unit_type">
             {% for t in ["Organisation", "Departement", "Bereich", "Abteilung", "Team", "Stelle"] %}
                 <option value="{{ t }}"
-                    {% if unit.unit_type == t or (not unit.id and request.args.get('unit_type') == t) %}selected{% endif %}>
+                    {% if unit.unit_type == t or (not unit.id and preselect_unit_type == t) %}selected{% endif %}>
                     {{ t }}
                 </option>
             {% endfor %}
@@ -23,7 +25,7 @@
             <option value="">keine</option>
             {% for u in all_units %}
                 {% if u.id != unit.id and u.unit_type != "Stelle" %}
-                    <option value="{{ u.id }}" {% if unit.parent_id == u.id or request.args.get('parent_id', type=int) == u.id %}selected{% endif %}>
+                    <option value="{{ u.id }}" {% if unit.parent_id == u.id or preselect_parent_id == u.id %}selected{% endif %}>
                         {{ u.name }} ({{ u.unit_type }})
                     </option>
                 {% endif %}
@@ -69,7 +71,7 @@
 </form>
 
 {% if unit.id %}
-<form method="post" action="{{ url_for('org_unit_delete', organization_id=organization.id, unit_id=unit.id) }}" onsubmit="return confirm('Einheit wirklich löschen?');">
+<form method="post" action="{{ url_for('organization.org_unit_delete', unit_id=unit.id) }}" onsubmit="return confirm('Einheit wirklich löschen?');">
     <button class="danger" type="submit">Einheit löschen</button>
 </form>
 {% endif %}

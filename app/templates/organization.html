@@ -20,13 +20,13 @@
                 {% for position in positions|sort(attribute='sort_order') %}
                     <tr>
                         <td>
-                            <a href="{{ url_for('organization.org_unit_edit', organization_id=position.organization_id, unit_id=position.id) }}" target="_blank">
+                            <a href="{{ url_for('organization.org_unit_edit', organization_id=position.organization_id, unit_id=position.id) }}">
                                 {{ position.name }}
                             </a>
                         </td>
                         <td>
                             {% if position.person %}
-                                <a href="{{ url_for('organization.person_edit', person_id=position.person.id) }}" target="_blank">{{ position.person.name }}</a>
+                                <a href="{{ url_for('organization.person_edit', person_id=position.person.id) }}">{{ position.person.name }}</a>
                             {% else %}
                                 <em>unbesetzt</em>
                             {% endif %}
@@ -53,7 +53,7 @@
                             {% endif %}
                         </td>
                         <td>
-                            <a href="{{ url_for('organization.org_unit_edit', organization_id=position.organization_id, unit_id=position.id) }}" target="_blank">bearbeiten</a>
+                            <a href="{{ url_for('organization.org_unit_edit', organization_id=position.organization_id, unit_id=position.id) }}">bearbeiten</a>
                         </td>
                     </tr>
                 {% endfor %}
@@ -78,7 +78,7 @@
         <div class="small">
             <strong>Rollen:</strong>
             {% for role in unit.roles %}
-                <a href="{{ url_for('organization.role_edit', role_id=role.id) }}" target="_blank">{{ role.name }}</a>{% if not loop.last %}, {% endif %}
+                <a href="{{ url_for('organization.role_edit', role_id=role.id) }}">{{ role.name }}</a>{% if not loop.last %}, {% endif %}
             {% else %}
                 keine
             {% endfor %}
@@ -87,9 +87,9 @@
         {{ positions_table(unit) }}
 
         <div class="org-card-actions">
-            <a href="{{ url_for('organization.org_unit_edit', organization_id=unit.organization_id, unit_id=unit.id) }}" target="_blank">bearbeiten</a>
-            <a href="{{ url_for('organization.org_unit_edit', organization_id=unit.organization_id) }}?parent_id={{ unit.id }}" target="_blank">Einheit unterstellen</a>
-            <a href="{{ url_for('organization.org_unit_edit', organization_id=unit.organization_id) }}?parent_id={{ unit.id }}&unit_type=Stelle" target="_blank">Stelle hinzufügen</a>
+            <a href="{{ url_for('organization.org_unit_edit', organization_id=unit.organization_id, unit_id=unit.id) }}">bearbeiten</a>
+            <a href="{{ url_for('organization.org_unit_edit', organization_id=unit.organization_id, parent_id=unit.id) }}">Einheit unterstellen</a>
+            <a href="{{ url_for('organization.org_unit_edit', organization_id=unit.organization_id, parent_id=unit.id, unit_type='Stelle') }}">Stelle hinzufügen</a>
         </div>
     </div>
 
@@ -111,8 +111,8 @@
         <div>
             <a class="button" href="{{ url_for('organization.organization_edit') }}">Organisation hinzufügen</a>
             {% if selected_org %}
-                <a class="button" href="{{ url_for('organization.organization_edit', organization_id=selected_org.id) }}" target="_blank">Organisation bearbeiten</a>
-                <a class="button" href="{{ url_for('organization.org_unit_edit', organization_id=selected_org.id) }}" target="_blank">Einheit hinzufügen</a>
+                <a class="button" href="{{ url_for('organization.organization_edit', organization_id=selected_org.id) }}">Organisation bearbeiten</a>
+                <a class="button" href="{{ url_for('organization.org_unit_edit', organization_id=selected_org.id) }}">Einheit hinzufügen</a>
             {% endif %}
         </div>
     </div>
@@ -146,13 +146,13 @@
     <section>
         <div class="section-title">
             <h2>Rollen</h2>
-            <a class="button" href="{{ url_for('organization.role_edit') }}" target="_blank">Rolle hinzufügen</a>
+            <a class="button" href="{{ url_for('organization.role_edit') }}">Rolle hinzufügen</a>
         </div>
         <table>
             <tr><th>Rolle</th><th>Funktionen</th></tr>
             {% for r in roles %}
             <tr>
-                <td><a href="{{ url_for('organization.role_edit', role_id=r.id) }}" target="_blank">{{ r.name }}</a></td>
+                <td><a href="{{ url_for('organization.role_edit', role_id=r.id) }}">{{ r.name }}</a></td>
                 <td>{% for f in r.functions %}{{ f.name }}{% if not loop.last %}, {% endif %}{% else %}keine{% endfor %}</td>
             </tr>
             {% endfor %}
@@ -162,12 +162,12 @@
     <section>
         <div class="section-title">
             <h2>Funktionen</h2>
-            <a class="button" href="{{ url_for('organization.function_edit') }}" target="_blank">Funktion hinzufügen</a>
+            <a class="button" href="{{ url_for('organization.function_edit') }}">Funktion hinzufügen</a>
         </div>
         <table>
             {% for f in functions %}
             <tr>
-                <td><a href="{{ url_for('organization.function_edit', function_id=f.id) }}" target="_blank">{{ f.name }}</a></td>
+                <td><a href="{{ url_for('organization.function_edit', function_id=f.id) }}">{{ f.name }}</a></td>
                 <td>{{ f.description or "" }}</td>
             </tr>
             {% endfor %}
@@ -178,13 +178,13 @@
 <section>
     <div class="section-title">
         <h2>Personen{% if selected_org %} – {{ selected_org.name }}{% endif %}</h2>
-        <a class="button" href="{{ url_for('organization.person_edit') }}" target="_blank">Person hinzufügen</a>
+        <a class="button" href="{{ url_for('organization.person_edit') }}">Person hinzufügen</a>
     </div>
     <table>
         <tr><th>Name</th><th>Anstellung</th><th>Jahresgehalt 100%</th><th>Effektive Kosten</th><th>Stellen</th><th>Rollen</th><th>Funktionen</th></tr>
         {% for p in persons %}
         <tr class="{% if not p.active %}inactive{% endif %}">
-            <td><a href="{{ url_for('organization.person_edit', person_id=p.id) }}" target="_blank">{{ p.name }}</a></td>
+            <td><a href="{{ url_for('organization.person_edit', person_id=p.id) }}">{{ p.name }}</a></td>
             <td>{{ "%.0f"|format(p.fte * 100) }}%</td>
             <td>CHF {{ "%.0f"|format(p.annual_salary) }}</td>
             <td>CHF {{ "%.0f"|format(p.annual_salary * p.fte) }}</td>
