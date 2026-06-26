@@ -4,5 +4,6 @@ Flask-Login==0.6.3
 email-validator==2.2.0
 python-dotenv==1.0.1
 gunicorn>=22.0.0
-# Optional: nur fuer PostgreSQL noetig (Standard ist SQLite)
-psycopg2-binary==2.9.12
+# Optionale DB-Treiber (Standard ist SQLite):
+PyMySQL==1.1.1          # MariaDB / MySQL  (mysql+pymysql://…)
+psycopg2-binary==2.9.12  # PostgreSQL      (postgresql+psycopg2://…)
