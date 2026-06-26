@@ -29,5 +29,5 @@ def test_dashboard_ok_when_logged_in(app, client):
 def test_core_routes_ok_when_logged_in(app, client):
     _admin(app)
     login(client, "admin@test.ch")
-    for url in ["/processes", "/process-map", "/organization/", "/bpmn"]:
+    for url in ["/processes", "/process-map", "/organization/"]:
         assert client.get(url, follow_redirects=True).status_code == 200

@@ -330,7 +330,8 @@ def process_map():
 def process_list():
     processes = (
         Process.query.filter_by(account_id=current_account_id())
-        .order_by(Process.parent_process_id.nullsfirst(), Process.name).all()
+        # parent_process_id IS NULL zuerst (MariaDB-kompatibel statt nullsfirst())
+        .order_by(Process.parent_process_id.is_(None).desc(), Process.name).all()
     )
     process_summaries = {process.id: process_cost_summary(process) for process in processes}
 
@@ -339,12 +340,6 @@ def process_list():
         processes=processes,
         process_summaries=process_summaries,
     )
-
-
-@process_bp.route("/bpmn")
-def bpmn_processes():
-    # Platzhalter fuer den BPMN-Editor (verlinkt aus der Navigation).
-    return render_template("bpmn_editor.html")
 
 
 @process_bp.route("/simulation", methods=["GET", "POST"])
