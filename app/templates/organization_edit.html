@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+<p><a href="{{ url_for('organization.organization', org_id=organization.id) }}">← Zurück zur Organisation</a></p>
 <h2>Organisation bearbeiten</h2>
 
 <form method="post" class="form-card">
