@@ -111,8 +111,11 @@ def org_unit_edit(unit_id=None):
         OrgUnit.sort_order, OrgUnit.name).all()
     persons = Person.query.filter_by(account_id=_acc()).order_by(Person.name).all()
     roles = Role.query.filter_by(account_id=_acc()).order_by(Role.name).all()
-    return render_template("org_unit_edit.html", unit=unit, organization=organization,
-                           all_units=all_units, persons=persons, roles=roles)
+    return render_template(
+        "org_unit_edit.html", unit=unit, organization=organization,
+        all_units=all_units, persons=persons, roles=roles,
+        preselect_parent_id=request.args.get("parent_id", type=int),
+        preselect_unit_type=request.args.get("unit_type"))
 
 
 @organization_bp.route("/unit/<int:unit_id>/delete", methods=["POST"])

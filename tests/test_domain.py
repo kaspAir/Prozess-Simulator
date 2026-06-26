@@ -56,6 +56,36 @@ def test_create_person_and_unit(app, client):
         assert p is not None and p.account_id is not None and p.organization_id == oid
 
 
+def test_add_subunit_and_position(app, client):
+    _admin(app, client)
+    client.post("/organization/edit", data={"name": "OrgX"}, follow_redirects=True)
+    with app.app_context():
+        from app.models import Organization
+        oid = Organization.query.filter_by(name="OrgX").first().id
+    client.post("/organization/unit/edit",
+                data={"name": "Dep", "unit_type": "Departement", "organization_id": str(oid)},
+                follow_redirects=True)
+    with app.app_context():
+        from app.models import OrgUnit
+        pid = OrgUnit.query.filter_by(name="Dep").first().id
+    # "Einheit unterstellen" / "Stelle hinzufügen" – GET-Formular rendert mit parent_id
+    assert client.get(f"/organization/unit/edit?organization_id={oid}&parent_id={pid}").status_code == 200
+    assert client.get(f"/organization/unit/edit?organization_id={oid}&parent_id={pid}&unit_type=Stelle").status_code == 200
+    # Untereinheit + Stelle anlegen
+    client.post("/organization/unit/edit",
+                data={"name": "Sub", "unit_type": "Team", "parent_id": str(pid), "organization_id": str(oid)},
+                follow_redirects=True)
+    client.post("/organization/unit/edit",
+                data={"name": "Stelle1", "unit_type": "Stelle", "parent_id": str(pid), "organization_id": str(oid)},
+                follow_redirects=True)
+    with app.app_context():
+        from app.models import OrgUnit
+        sub = OrgUnit.query.filter_by(name="Sub").first()
+        stelle = OrgUnit.query.filter_by(name="Stelle1").first()
+        assert sub.parent_id == pid
+        assert stelle.parent_id == pid and stelle.unit_type == "Stelle"
+
+
 def test_viewer_cannot_create_organization(app, client):
     from app.auth.permissions import P_DASHBOARD_VIEW
     make_account_with_role(app, "Viewer", {P_DASHBOARD_VIEW}, email="v@test.ch")
