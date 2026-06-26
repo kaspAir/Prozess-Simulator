@@ -69,7 +69,7 @@
 </form>
 
 {% if unit.id %}
-<form method="post" action="{{ url_for('org_unit_delete', organization_id=organization.id, unit_id=unit.id) }}" onsubmit="return confirm('Einheit wirklich löschen?');">
+<form method="post" action="{{ url_for('organization.org_unit_delete', unit_id=unit.id) }}" onsubmit="return confirm('Einheit wirklich löschen?');">
     <button class="danger" type="submit">Einheit löschen</button>
 </form>
 {% endif %}
