@@ -8,3 +8,5 @@ ignore = ["E501"]   # Zeilenlaenge nicht hart erzwingen
 [lint.per-file-ignores]
 "tests/*" = ["E402"]
 "scripts/*" = ["E402"]
+# app/__init__.py importiert Blueprints bewusst nach dem SQLite-Pragma-Listener.
+"app/__init__.py" = ["E402"]

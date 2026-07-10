@@ -1,9 +1,10 @@
+import json
 import os
 from datetime import datetime, timezone
 
 from flask import (
     Blueprint, redirect, url_for, render_template, request, session, jsonify,
-    send_file, flash, current_app,
+    send_file, flash, current_app, Response,
 )
 from flask_login import current_user
 from sqlalchemy import text
@@ -39,6 +40,29 @@ def test_protocol_pdf():
         return redirect(url_for("main.dashboard"))
     return send_file(path, mimetype="application/pdf", as_attachment=False,
                      download_name="Testprotokoll_Prozess-Simulator.pdf")
+
+
+@main_bp.route("/export/model.json")
+@require_permission(P_DASHBOARD_VIEW)
+def export_model_json():
+    """Exportiert das Modell (Organisation, Einheiten, Rollen, Funktionen, Personen,
+    Prozesse mit Parametern) des aktiven Accounts als JSON-Datei."""
+    from app.services.export_service import build_model_export
+    data = build_model_export(current_account_id())
+    body = json.dumps(data, ensure_ascii=False, indent=2)
+    return Response(body, mimetype="application/json", headers={
+        "Content-Disposition": "attachment; filename=digitwin-modell.json"})
+
+
+@main_bp.route("/export/model.xml")
+@require_permission(P_DASHBOARD_VIEW)
+def export_model_xml():
+    """Wie export_model_json, jedoch als XML-Datei."""
+    from app.services.export_service import build_model_export, model_to_xml
+    data = build_model_export(current_account_id())
+    body = model_to_xml(data)
+    return Response(body, mimetype="application/xml", headers={
+        "Content-Disposition": "attachment; filename=digitwin-modell.xml"})
 
 
 @main_bp.route("/")

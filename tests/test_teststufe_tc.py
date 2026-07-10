@@ -370,20 +370,50 @@ def test_tc_020_simulationsergebnisse_im_dashboard_anzeigen(app, client):
     assert "Hauptprozess Strafbefehl" in resp.get_data(as_text=True)
 
 
-# ── UC-013: Export (noch nicht implementiert) ───────────────────────────────
-@pytest.mark.skip(reason="Export-Funktion (JSON) noch nicht implementiert – TC-021")
-def test_tc_021_modell_als_json_exportieren(app):
-    pass
+# ── UC-013: Export (JSON / XML) ─────────────────────────────────────────────
+def test_tc_021_modell_als_json_exportieren(app, client):
+    _admin(app, client)
+    _create_org(client, "Export Org")
+    oid = _org_id(app, "Export Org")
+    client.post("/organization/person/edit",
+                data={"name": "Export Person", "annual_salary": "90000", "fte": "1.0",
+                      "organization_id": str(oid)}, follow_redirects=True)
+    _new_process(app, client, name="Export Prozess")
+    resp = client.get("/export/model.json")
+    assert resp.status_code == 200
+    assert resp.mimetype == "application/json"
+    import json
+    data = json.loads(resp.get_data(as_text=True))
+    for key in ("organizations", "roles", "functions", "persons", "processes"):
+        assert key in data
+    assert any(o["name"] == "Export Org" for o in data["organizations"])
+    assert any(p["name"] == "Export Person" for p in data["persons"])
+    assert any(pr["name"] == "Export Prozess" for pr in data["processes"])
 
 
-@pytest.mark.skip(reason="Export-Funktion (XML) noch nicht implementiert – TC-022")
-def test_tc_022_modell_als_xml_exportieren(app):
-    pass
+def test_tc_022_modell_als_xml_exportieren(app, client):
+    _admin(app, client)
+    _create_org(client, "XML Org")
+    _new_process(app, client, name="XML Prozess")
+    resp = client.get("/export/model.xml")
+    assert resp.status_code == 200
+    assert resp.mimetype == "application/xml"
+    import xml.etree.ElementTree as ET
+    text = resp.get_data(as_text=True)
+    root = ET.fromstring(text)
+    assert root.tag == "model"
+    assert "XML Org" in text and "XML Prozess" in text
 
 
-@pytest.mark.skip(reason="Export-Vollstaendigkeit setzt Export-Funktion voraus – TC-023")
-def test_tc_023_vollstaendigkeit_des_exports_pruefen(app):
-    pass
+def test_tc_023_vollstaendigkeit_des_exports_pruefen(app, client):
+    acc_id = _admin(app, client)
+    _build_sim(app, acc_id, fte=0.8, effort=45.0)   # Org, Stelle, Person, Prozess+Nodes/Edges
+    import json
+    data = json.loads(client.get("/export/model.json").get_data(as_text=True))
+    assert data["organizations"] and data["organizations"][0]["units"]
+    assert data["persons"]
+    proc = data["processes"][0]
+    assert proc["nodes"] and proc["edges"]
 
 
 # ── UC-014: Organisationsentwicklung ────────────────────────────────────────

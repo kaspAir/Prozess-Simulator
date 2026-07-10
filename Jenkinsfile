@@ -77,11 +77,17 @@ pipeline {
                         sh '''
                             pip install --no-cache-dir ruff bandit pip-audit
                             mkdir -p reports
-                            # advisory: brechen den Build (noch) nicht ab, Reports werden archiviert
-                            ruff check app scripts run.py > reports/ruff.txt 2>&1 || true
-                            bandit -r app -q -f txt -o reports/bandit.txt || true
-                            pip-audit -r requirements.txt -f markdown -o reports/pip-audit.md || true
-                            echo "Statische Analyse abgeschlossen (advisory)."
+                            # scharf: jeder Fund macht den Build rot. Alle drei laufen
+                            # (Reports werden erzeugt/archiviert), danach Sammel-Exit.
+                            rc=0
+                            ruff check app scripts run.py > reports/ruff.txt 2>&1 || rc=1
+                            bandit -r app -f txt -o reports/bandit.txt || rc=1
+                            pip-audit -r requirements.txt -f markdown -o reports/pip-audit.md || rc=1
+                            echo "----- ruff -----";      cat reports/ruff.txt
+                            echo "----- bandit -----";    cat reports/bandit.txt
+                            echo "----- pip-audit -----"; cat reports/pip-audit.md
+                            echo "Statische Analyse rc=$rc"
+                            exit $rc
                         '''
                     }
                 }

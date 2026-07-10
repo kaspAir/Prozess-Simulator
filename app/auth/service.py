@@ -8,10 +8,9 @@ from flask_login import current_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from app.models import (
-    db, User, Account, Membership, AccessRole, AccessRolePermission,
-    RoleAssignment, Invitation,
+    db, User, Account, Membership, RoleAssignment, Invitation,
 )
-from app.auth.permissions import ACCOUNT_ADMIN_ROLE, P_ACCOUNT_MEMBERS
+from app.auth.permissions import P_ACCOUNT_MEMBERS
 
 
 # ── Aktiver Kontext (Session) ──────────────────────────────────────────────

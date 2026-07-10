@@ -167,7 +167,7 @@ class Role(db.Model):
     activities = db.relationship("Activity", secondary=role_activity, back_populates="roles")
     nodes = db.relationship("Node", secondary=node_role, back_populates="roles")
     org_units = db.relationship("OrgUnit", secondary=org_unit_role, back_populates="roles")
-    
+
 
 class Function(db.Model):
     __tablename__ = "functions"
