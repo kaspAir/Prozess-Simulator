@@ -132,6 +132,115 @@ def build_markdown(cases, total_time, env, commit, job):
     return "\n".join(lines) + "\n"
 
 
+def build_pdf(path, cases, total_time, env, commit, job):
+    """Erzeugt ein vorzeigbares PDF-Testprotokoll (ReportLab, reine Python-Lib).
+    Gibt True zurück, wenn erstellt; False, wenn ReportLab fehlt (dann nur MD/HTML)."""
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import mm
+        from reportlab.platypus import (
+            SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle)
+    except ImportError:
+        return False
+
+    total = len(cases)
+    passed = sum(1 for c in cases if c["status"] == "passed")
+    skipped = sum(1 for c in cases if c["status"] == "skipped")
+    failed = total - passed - skipped
+    green = failed == 0 and total > 0
+    overall = "GRÜN" if green else ("ROT" if total > 0 else "KEINE TESTS")
+    result_color = colors.HexColor("#0b6b3a") if green else colors.HexColor("#b00020")
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    styles = getSampleStyleSheet()
+    h1 = ParagraphStyle("h1", parent=styles["Heading1"], fontSize=18,
+                        textColor=colors.HexColor("#27324a"))
+    h2 = ParagraphStyle("h2", parent=styles["Heading2"], fontSize=12,
+                        textColor=colors.HexColor("#27324a"), spaceBefore=12)
+    small = ParagraphStyle("small", parent=styles["Normal"], fontSize=8.5,
+                           textColor=colors.HexColor("#555b66"))
+    cell = ParagraphStyle("cell", parent=styles["Normal"], fontSize=9)
+
+    doc = SimpleDocTemplate(path, pagesize=A4, title="Testprotokoll – Prozess-Simulator",
+                            leftMargin=18 * mm, rightMargin=18 * mm,
+                            topMargin=16 * mm, bottomMargin=16 * mm)
+    story = []
+    story.append(Paragraph("Testprotokoll – Prozess-Simulator", h1))
+    story.append(Paragraph(
+        "Reproduzierbarer Nachweis eines Testlaufs – deterministisch aus dem "
+        "pytest-Ergebnis erzeugt.", small))
+    story.append(Spacer(1, 8 * mm))
+
+    meta = [
+        ["Umgebung", env],
+        ["Job", job or "—"],
+        ["Commit", commit or "—"],
+        ["Zeitpunkt (UTC)", now],
+        ["Gesamtergebnis", overall],
+        ["Tests gesamt", f"{total}  (bestanden {passed}, fehlgeschlagen {failed}, "
+                         f"übersprungen {skipped})"],
+        ["Dauer", f"{total_time:.2f} s"],
+    ]
+    mt = Table(meta, colWidths=[42 * mm, 128 * mm])
+    mt.setStyle(TableStyle([
+        ("FONTSIZE", (0, 0), (-1, -1), 9.5),
+        ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor("#315bdc")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("TEXTCOLOR", (1, 4), (1, 4), result_color),
+        ("FONTNAME", (1, 4), (1, 4), "Helvetica-Bold"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LINEBELOW", (0, 0), (-1, -2), 0.4, colors.HexColor("#e0e5ef")),
+    ]))
+    story.append(mt)
+
+    story.append(Paragraph("Ergebnis je Testart", h2))
+    head = ["Testart", "Schnittstelle", "Gesamt", "Bestanden", "Fehlgeschl.", "Überspr."]
+    data = [head]
+    agg = aggregate(cases)
+    for art in sorted(agg):
+        a = agg[art]
+        data.append([art, tc.SCHNITTSTELLENMODUS, str(a["total"]), str(a["passed"]),
+                     str(a["failed"]), str(a["skipped"])])
+    at = Table(data, colWidths=[55 * mm, 25 * mm, 20 * mm, 24 * mm, 24 * mm, 22 * mm])
+    at.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#315bdc")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (2, 0), (-1, -1), "CENTER"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f7fb")]),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#d6def0")),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(at)
+
+    fails = [c for c in cases if c["status"] in ("failed", "error")]
+    if fails:
+        story.append(Paragraph("Fehlgeschlagene Tests", h2))
+        for c in fails:
+            msg = c["message"].splitlines()[0] if c["message"] else ""
+            txt = f"<b>{esc(c['classname'])}::{esc(c['name'])}</b> — {esc(msg)}"
+            story.append(Paragraph(txt, cell))
+            story.append(Spacer(1, 1.5 * mm))
+
+    story.append(Spacer(1, 8 * mm))
+    story.append(Paragraph(
+        "Schnittstellenmodus «mock»: geprüft gegen die eigene Datenbank, nicht gegen ein "
+        "echtes Umsystem. Erzeugt vom deterministischen Test-Runner – der Inhalt stammt "
+        "ausschliesslich aus dem Testergebnis.", small))
+
+    doc.build(story)
+    return True
+
+
+def esc(s):
+    return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def markdown_to_html(md):
     body = html.escape(md)
     return (
@@ -162,10 +271,16 @@ def main():
     with open(html_out, "w", encoding="utf-8") as f:
         f.write(markdown_to_html(md))
 
+    pdf_out = os.path.splitext(args.out)[0] + ".pdf"
+    pdf_ok = build_pdf(pdf_out, cases, total_time, env, args.commit, args.job)
+
     passed = sum(1 for c in cases if c["status"] == "passed")
     failed = sum(1 for c in cases if c["status"] in ("failed", "error"))
-    print(f"Testprotokoll geschrieben: {args.out} (+ {os.path.basename(html_out)}) — "
+    outputs = os.path.basename(html_out) + (", " + os.path.basename(pdf_out) if pdf_ok else "")
+    print(f"Testprotokoll geschrieben: {args.out} (+ {outputs}) — "
           f"{len(cases)} Tests, {passed} bestanden, {failed} fehlgeschlagen, Umgebung {env}")
+    if not pdf_ok:
+        print("Hinweis: ReportLab nicht installiert -> kein PDF erzeugt (nur MD/HTML).")
 
 
 if __name__ == "__main__":

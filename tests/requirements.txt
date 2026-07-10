@@ -6,3 +6,6 @@ pytest>=8.0.0
 ruff>=0.6.0        # Linter
 bandit>=1.7.0      # Python-SAST
 pip-audit>=2.7.0   # Abhaengigkeits-CVEs
+
+# PDF-Testprotokoll (reine Python-Lib, keine Systempakete noetig)
+reportlab>=4.0.0
