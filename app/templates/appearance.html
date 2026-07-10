@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+/* Vergleichsraster */
+.theme-intro { margin-bottom: 1rem; }
+.theme-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+}
+@media (max-width: 820px) { .theme-grid { grid-template-columns: 1fr; } }
+
+/* Eine Karte = eine Mini-App in ihrer eigenen Variante (via data-theme) */
+.theme-card {
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 6px 18px rgba(24,35,63,.10);
+    display: flex;
+    flex-direction: column;
+    transition: transform .12s ease, box-shadow .12s ease;
+}
+.theme-card.is-active {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+}
+.theme-card-head {
+    background: var(--header-bg);
+    color: var(--header-ink);
+    padding: .8rem 1rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .5rem;
+}
+.theme-card-head .tname { font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; }
+.theme-card-head .ttag  { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.theme-card-body { padding: 1rem; display: flex; flex-direction: column; gap: .7rem; }
+.theme-desc { color: var(--muted); font-size: .9rem; margin: 0; }
+
+/* Farbfelder */
+.swatches { display: flex; gap: .4rem; flex-wrap: wrap; }
+.swatch { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); }
+
+/* Mini-Vorschau */
+.mini { background: var(--bg); border-radius: 10px; padding: .8rem; display: flex; flex-direction: column; gap: .55rem; }
+.mini h3 { font-family: var(--font-display); margin: 0; font-size: 1.35rem; color: var(--ink); }
+.mini .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: .6rem .7rem; }
+.mini .row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.mini .btn { background: var(--accent); color: var(--on-accent); border-radius: 8px; padding: .4rem .8rem; font-weight: bold; font-size: .82rem; }
+.mini .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.mini .btn.del { background: var(--status-red); color: #fff; }
+.mini .pill { font-size: .72rem; font-weight: bold; padding: .2rem .55rem; border-radius: 999px; }
+.mini .pill.eng { background: var(--status-red); color: #fff; }
+.mini .pill.acc { background: var(--accent); color: var(--on-accent); }
+.mini .field { background: var(--field); color: var(--ink); border: 1px solid var(--border); border-radius: 8px; padding: .4rem .55rem; font-size: .82rem; }
+.mini .bar { height: 10px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.mini .bar > span { display: block; height: 100%; width: 68%; background: var(--accent); }
+.mini .muted { color: var(--muted); font-size: .8rem; }
+.mini .link { color: var(--accent); font-weight: bold; font-size: .82rem; text-decoration: none; }
+
+.theme-actions { display: flex; align-items: center; gap: .6rem; margin-top: .2rem; }
+.theme-activate { background: var(--accent); color: var(--on-accent); }
+.theme-active-badge {
+    display: none; font-size: .72rem; font-weight: bold; color: var(--accent);
+    border: 1px solid var(--accent); border-radius: 999px; padding: .15rem .55rem;
+}
+</style>
+
+<section class="theme-intro">
+    <div class="section-title"><h2>Erscheinungsbild</h2></div>
+    <p class="small">
+        Vier Varianten zum Vergleichen: das aktuelle <strong>Standard</strong>-Design und die drei
+        Styleguides <strong>Kanzlei</strong>, <strong>Signal</strong> und <strong>Twin</strong>.
+        Jede Karte zeigt eine Live-Vorschau in ihrer eigenen Variante. Mit «Aktivieren» wird die
+        gesamte Anwendung umgestellt – die Auswahl bleibt in diesem Browser gespeichert und lässt
+        sich jederzeit wieder ändern.
+    </p>
+</section>
+
+<div class="theme-grid">
+
+    {# ---- Standard ---- #}
+    <div class="theme-card" data-theme="standard">
+        <div class="theme-card-head">
+            <span class="tname">Standard</span>
+            <span class="ttag">Aktuell · Default</span>
+        </div>
+        <div class="theme-card-body">
+            <p class="theme-desc">Das bisherige Erscheinungsbild – blaues Akzentblau auf hellem Grund.</p>
+            <div class="swatches">
+                <span class="swatch" style="background:#315bdc"></span>
+                <span class="swatch" style="background:#18233f"></span>
+                <span class="swatch" style="background:#f5f7fb"></span>
+                <span class="swatch" style="background:#1d2433"></span>
+            </div>
+            {% include "_theme_preview.html" %}
+            <div class="theme-actions">
+                <button type="button" class="button theme-activate">Aktivieren</button>
+                <span class="theme-active-badge">✓ aktiv</span>
+            </div>
+        </div>
+    </div>
+
+    {# ---- 1a Kanzlei ---- #}
+    <div class="theme-card" data-theme="kanzlei">
+        <div class="theme-card-head">
+            <span class="tname">Kanzlei</span>
+            <span class="ttag">1a · Konservativ</span>
+        </div>
+        <div class="theme-card-body">
+            <p class="theme-desc">Amtlich, ruhig, vertrauenswürdig: Marineblau auf warmem Papier, Serifen-Überschriften.</p>
+            <div class="swatches">
+                <span class="swatch" style="background:#1f3b63"></span>
+                <span class="swatch" style="background:#14243d"></span>
+                <span class="swatch" style="background:#f6f4ef"></span>
+                <span class="swatch" style="background:#1c2536"></span>
+            </div>
+            {% include "_theme_preview.html" %}
+            <div class="theme-actions">
+                <button type="button" class="button theme-activate">Aktivieren</button>
+                <span class="theme-active-badge">✓ aktiv</span>
+            </div>
+        </div>
+    </div>
+
+    {# ---- 1b Signal ---- #}
+    <div class="theme-card" data-theme="signal">
+        <div class="theme-card-head">
+            <span class="tname">Signal</span>
+            <span class="ttag">1b · Empfehlung</span>
+        </div>
+        <div class="theme-card-body">
+            <p class="theme-desc">Seriös, aber zeitgemäss: klares Azurblau auf kühlem Neutral – behördentauglich und modern.</p>
+            <div class="swatches">
+                <span class="swatch" style="background:#2559e6"></span>
+                <span class="swatch" style="background:#1d48c4"></span>
+                <span class="swatch" style="background:#f5f7fa"></span>
+                <span class="swatch" style="background:#0e1524"></span>
+            </div>
+            {% include "_theme_preview.html" %}
+            <div class="theme-actions">
+                <button type="button" class="button theme-activate">Aktivieren</button>
+                <span class="theme-active-badge">✓ aktiv</span>
+            </div>
+        </div>
+    </div>
+
+    {# ---- 1c Twin ---- #}
+    <div class="theme-card" data-theme="twin">
+        <div class="theme-card-head">
+            <span class="tname">Twin</span>
+            <span class="ttag">1c · Mutig</span>
+        </div>
+        <div class="theme-card-body">
+            <p class="theme-desc">Dunkle Bühne, elektrischer Mint-Akzent: differenzierend, produktzentriert, tech-forward.</p>
+            <div class="swatches">
+                <span class="swatch" style="background:#19e3b4"></span>
+                <span class="swatch" style="background:#12c79e"></span>
+                <span class="swatch" style="background:#0e1220"></span>
+                <span class="swatch" style="background:#edf0f7"></span>
+            </div>
+            {% include "_theme_preview.html" %}
+            <div class="theme-actions">
+                <button type="button" class="button theme-activate">Aktivieren</button>
+                <span class="theme-active-badge">✓ aktiv</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+(function () {
+    var KEY = 'ditwi-theme';
+    function currentTheme() {
+        try { return localStorage.getItem(KEY) || 'standard'; } catch (e) { return 'standard'; }
+    }
+    function mark(active) {
+        document.querySelectorAll('.theme-card').forEach(function (card) {
+            var t = card.getAttribute('data-theme');
+            var on = (t === active);
+            card.classList.toggle('is-active', on);
+            var btn = card.querySelector('.theme-activate');
+            var badge = card.querySelector('.theme-active-badge');
+            if (btn) { btn.textContent = on ? 'Aktiv' : 'Aktivieren'; btn.disabled = on; }
+            if (badge) { badge.style.display = on ? 'inline-block' : 'none'; }
+        });
+    }
+    function apply(theme) {
+        try {
+            if (theme && theme !== 'standard') localStorage.setItem(KEY, theme);
+            else localStorage.removeItem(KEY);
+        } catch (e) {}
+        document.documentElement.setAttribute('data-theme', theme || 'standard');
+        mark(theme || 'standard');
+    }
+    document.querySelectorAll('.theme-activate').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            apply(btn.closest('.theme-card').getAttribute('data-theme'));
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    });
+    mark(currentTheme());
+})();
+</script>
+{% endblock %}

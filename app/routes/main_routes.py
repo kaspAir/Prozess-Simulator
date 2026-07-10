@@ -18,6 +18,15 @@ def index():
     return redirect(url_for("main.dashboard"))
 
 
+@main_bp.route("/appearance")
+@require_permission(P_DASHBOARD_VIEW)
+def appearance():
+    """Vergleichsseite Erscheinungsbild: Standard + drei Styleguide-Varianten.
+    Die Umschaltung selbst passiert clientseitig (localStorage), damit das Team
+    ohne Server-Roundtrip live vergleichen kann."""
+    return render_template("appearance.html")
+
+
 @main_bp.route("/dashboard")
 @require_permission(P_DASHBOARD_VIEW)
 def dashboard():

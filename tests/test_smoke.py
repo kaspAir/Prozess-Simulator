@@ -31,3 +31,12 @@ def test_core_routes_ok_when_logged_in(app, client):
     login(client, "admin@test.ch")
     for url in ["/processes", "/process-map", "/organization/"]:
         assert client.get(url, follow_redirects=True).status_code == 200
+
+
+def test_appearance_page_lists_all_themes(app, client):
+    _admin(app)
+    login(client, "admin@test.ch")
+    html = client.get("/appearance").get_data(as_text=True)
+    for token in ['data-theme="standard"', 'data-theme="kanzlei"',
+                  'data-theme="signal"', 'data-theme="twin"', "themes.css"]:
+        assert token in html

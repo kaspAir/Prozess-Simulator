@@ -3,7 +3,16 @@
 <head>
     <meta charset="utf-8">
     <title>Prozess-Simulator</title>
+    <script>
+      // Erscheinungsbild aus localStorage sofort anwenden (verhindert Flackern)
+      try { var _t = localStorage.getItem('ditwi-theme');
+            if (_t) document.documentElement.setAttribute('data-theme', _t); } catch (e) {}
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&family=Space+Grotesk:wght@400;500;700&display=swap">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='themes.css') }}">
     <link rel="icon" href="{{ url_for('static', filename='img/DiTi_Logo.jpg') }}">
 </head>
 <body>
@@ -29,6 +38,10 @@
 
                 {% if endpoint_exists('process.simulation') %}
                     <a href="{{ url_for('process.simulation') }}">Simulation</a>
+                {% endif %}
+
+                {% if endpoint_exists('main.appearance') %}
+                    <a href="{{ url_for('main.appearance') }}">Erscheinungsbild</a>
                 {% endif %}
             </nav>
         </div>

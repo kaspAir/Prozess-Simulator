@@ -1,13 +1,39 @@
+/* =========================================================================
+   Theme-Fundament: zentrale Design-Variablen. Der Default (:root und
+   [data-theme="standard"]) entspricht exakt dem bisherigen Erscheinungsbild.
+   Die drei Styleguide-Varianten liegen in themes.css.
+   ========================================================================= */
+:root, [data-theme="standard"] {
+    --bg: #f5f7fb;
+    --surface: #ffffff;
+    --surface-2: #eef3ff;
+    --field: #ffffff;
+    --ink: #1d2433;
+    --muted: #5d677d;
+    --accent: #315bdc;
+    --accent-dark: #0b3a8f;
+    --on-accent: #ffffff;
+    --border: #ccd3e0;
+    --header-bg: #ffffff;
+    --header-ink: #18233f;
+    --status-red: #b00020;
+    --font-body: Arial, sans-serif;
+    --font-display: Arial, sans-serif;
+}
+
+h1, h2, h3, .app-title h1 { font-family: var(--font-display); }
+main a:not(.button):not(.step) { color: var(--accent); }
+
 body {
     margin: 0;
-    font-family: Arial, sans-serif;
-    background: #f5f7fb;
-    color: #1d2433;
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--ink);
 }
 
 header {
     background: #18233f;
-    color: white;
+    color: var(--on-accent);
     padding: 1rem 2rem;
 }
 
@@ -16,7 +42,7 @@ header h1 {
 }
 
 nav a {
-    color: white;
+    color: var(--on-accent);
     margin-right: 1rem;
     text-decoration: none;
     font-weight: bold;
@@ -27,7 +53,7 @@ main {
 }
 
 .summary, .form-card, section {
-    background: white;
+    background: var(--surface);
     border-radius: 14px;
     padding: 1rem;
     margin-bottom: 1.5rem;
@@ -52,14 +78,14 @@ main {
     min-height: 250px;
     padding: 1rem;
     border-radius: 14px;
-    background: #eef3ff;
-    color: #1d2433;
+    background: var(--surface-2);
+    color: var(--ink);
     text-decoration: none;
     border: 2px solid transparent;
 }
 
 .step:hover {
-    border-color: #315bdc;
+    border-color: var(--accent);
 }
 
 .step-number {
@@ -67,8 +93,8 @@ main {
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background: #315bdc;
-    color: white;
+    background: var(--accent);
+    color: var(--on-accent);
     align-items: center;
     justify-content: center;
     font-weight: bold;
@@ -76,12 +102,12 @@ main {
 
 .small {
     font-size: .85rem;
-    color: #5d677d;
+    color: var(--muted);
 }
 
 .button, button {
-    background: #315bdc;
-    color: white;
+    background: var(--accent);
+    color: var(--on-accent);
     border: 0;
     border-radius: 8px;
     padding: .65rem 1rem;
@@ -91,7 +117,7 @@ main {
 }
 
 .danger {
-    background: #b00020;
+    background: var(--status-red);
 }
 
 label {
@@ -105,8 +131,10 @@ input, textarea, select {
     width: 100%;
     margin-top: .35rem;
     padding: .6rem;
-    border: 1px solid #ccd3e0;
+    border: 1px solid var(--border);
     border-radius: 8px;
+    background: var(--field);
+    color: var(--ink);
 }
 
 textarea {
@@ -114,7 +142,7 @@ textarea {
 }
 
 fieldset {
-    border: 1px solid #ccd3e0;
+    border: 1px solid var(--border);
     border-radius: 8px;
     margin-bottom: 1rem;
 }
@@ -130,7 +158,7 @@ fieldset {
 
 .org-tree, .org-tree ul {
     list-style: none;
-    border-left: 2px solid #ccd3e0;
+    border-left: 2px solid var(--border);
     margin-left: 1rem;
     padding-left: 1rem;
 }
@@ -170,7 +198,7 @@ td, th {
         linear-gradient(90deg, rgba(49,91,220,.05) 1px, transparent 1px),
         linear-gradient(rgba(49,91,220,.05) 1px, transparent 1px);
     background-size: 24px 24px;
-    border: 1px solid #dce3f2;
+    border: 1px solid var(--border);
     border-radius: 14px;
 }
 
@@ -224,9 +252,9 @@ td, th {
     align-items: center;
     gap: .25rem;
     text-align: center;
-    color: #1d2433;
+    color: var(--ink);
     text-decoration: none;
-    background: white;
+    background: var(--surface);
 }
 
 .bpmn-task,
@@ -242,7 +270,7 @@ td, th {
 .bpmn-subprocess {
     border-style: double;
     border-width: 5px;
-    background: #eef3ff;
+    background: var(--surface-2);
 }
 
 .bpmn-start,
@@ -296,8 +324,8 @@ td, th {
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    background: #315bdc;
-    color: white;
+    background: var(--accent);
+    color: var(--on-accent);
     text-decoration: none;
     display: flex;
     align-items: center;
@@ -365,7 +393,7 @@ td, th {
 .link-danger {
     border: 0;
     background: transparent;
-    color: #b00020;
+    color: var(--status-red);
     padding: 0;
     font: inherit;
     cursor: pointer;
@@ -384,7 +412,7 @@ td, th {
     cursor: pointer;
     font-size: 22px;
     font-weight: 900;
-    fill: #b00020;
+    fill: var(--status-red);
     paint-order: stroke;
     stroke: white;
     stroke-width: 6px;
@@ -404,7 +432,7 @@ td, th {
 .link-danger {
     border: 0;
     background: transparent;
-    color: #b00020;
+    color: var(--status-red);
     padding: 0;
     font: inherit;
     cursor: pointer;
@@ -428,10 +456,10 @@ td, th {
 /* Step 8: Logos im Header */
 
 .app-header {
-    background: white;
-    color: #1d2433;
+    background: var(--header-bg);
+    color: var(--header-ink);
     padding: 1rem 2rem;
-    border-bottom: 1px solid #dce3f2;
+    border-bottom: 1px solid var(--border);
     box-shadow: 0 4px 14px rgba(24,35,63,.06);
 }
 
@@ -464,11 +492,11 @@ td, th {
 
 .app-title h1 {
     margin: 0 0 .6rem 0;
-    color: #18233f;
+    color: var(--header-ink);
 }
 
 .app-header nav a {
-    color: #315bdc;
+    color: var(--accent);
     margin: 0 .6rem;
     text-decoration: none;
     font-weight: bold;
@@ -477,6 +505,14 @@ td, th {
 .app-header nav a:hover {
     text-decoration: underline;
 }
+
+/* Links in der Benutzerleiste (oben rechts) folgen dem Akzent des Themes */
+.user-bar a {
+    color: var(--accent);
+    font-weight: bold;
+    text-decoration: none;
+}
+.user-bar a:hover { text-decoration: underline; }
 
 @media (max-width: 900px) {
     .logo-row {
@@ -536,7 +572,7 @@ td, th {
     top: -1rem;
     width: 50%;
     height: 1rem;
-    border-top: 2px solid #ccd3e0;
+    border-top: 2px solid var(--border);
 }
 
 .org-chart li::before {
@@ -545,7 +581,7 @@ td, th {
 
 .org-chart li::after {
     left: 50%;
-    border-left: 2px solid #ccd3e0;
+    border-left: 2px solid var(--border);
 }
 
 .org-chart > li::before,
@@ -559,14 +595,14 @@ td, th {
     top: 0;
     left: 50%;
     height: 2rem;
-    border-left: 2px solid #ccd3e0;
+    border-left: 2px solid var(--border);
 }
 
 .org-card {
     display: inline-block;
     min-width: 220px;
     max-width: 280px;
-    background: white;
+    background: var(--surface);
     border: 2px solid #27324a;
     border-radius: 14px;
     padding: .9rem;
@@ -581,7 +617,7 @@ td, th {
 
 .org-card-header span {
     font-size: .8rem;
-    color: #5d677d;
+    color: var(--muted);
     text-transform: uppercase;
     letter-spacing: .04em;
 }
@@ -604,7 +640,7 @@ td, th {
         linear-gradient(90deg, rgba(49,91,220,.05) 1px, transparent 1px),
         linear-gradient(rgba(49,91,220,.05) 1px, transparent 1px);
     background-size: 24px 24px;
-    border: 1px solid #dce3f2;
+    border: 1px solid var(--border);
     border-radius: 14px;
 }
 
@@ -622,7 +658,7 @@ td, th {
     width: 235px;
     min-height: 105px;
     padding: 1rem;
-    background: white;
+    background: var(--surface);
     border: 2px solid #27324a;
     border-radius: 16px;
     box-shadow: 0 6px 16px rgba(24,35,63,.10);
@@ -634,7 +670,7 @@ td, th {
 }
 
 .process-card-map:hover {
-    border-color: #315bdc;
+    border-color: var(--accent);
 }
 
 .process-card-map.dragging {
@@ -644,7 +680,7 @@ td, th {
 
 .process-card-map span {
     font-size: .85rem;
-    color: #5d677d;
+    color: var(--muted);
 }
 
 .process-card-actions {
@@ -734,7 +770,7 @@ td, th {
 /* Step 15: Personen nach Organisation */
 
 .person-org-note {
-    color: #5d677d;
+    color: var(--muted);
     font-size: .9rem;
 }
 
@@ -742,13 +778,13 @@ td, th {
 
 .org-card-position {
     border-style: dashed;
-    background: #fbfcff;
+    background: var(--surface);
 }
 
 .position-person {
     margin: .6rem 0;
     padding: .5rem;
-    background: #eef3ff;
+    background: var(--surface-2);
     border-radius: 10px;
     display: flex;
     flex-direction: column;
@@ -757,7 +793,7 @@ td, th {
 
 .position-person span {
     font-size: .85rem;
-    color: #5d677d;
+    color: var(--muted);
 }
 
 /* Step 18: Stellen als aufklappbare Tabellen */
@@ -765,7 +801,7 @@ td, th {
 .positions-details {
     margin-top: .75rem;
     text-align: left;
-    background: #f5f7fb;
+    background: var(--bg);
     border-radius: 10px;
     padding: .5rem;
 }
@@ -773,13 +809,13 @@ td, th {
 .positions-details summary {
     cursor: pointer;
     font-weight: bold;
-    color: #315bdc;
+    color: var(--accent);
 }
 
 .positions-table {
     margin-top: .5rem;
     font-size: .85rem;
-    background: white;
+    background: var(--surface);
 }
 
 .positions-table th,
@@ -798,7 +834,7 @@ td, th {
 }
 
 .position-only {
-    border-left: 4px solid #315bdc;
+    border-left: 4px solid var(--accent);
     padding-left: 1rem;
 }
 
@@ -808,8 +844,8 @@ td, th {
     margin: 1rem 0;
     padding: .85rem 1rem;
     border-radius: 12px;
-    background: #eef3ff;
-    border-left: 5px solid #315bdc;
+    background: var(--surface-2);
+    border-left: 5px solid var(--accent);
 }
 
 .cost-pill {
@@ -828,8 +864,8 @@ td, th {
     margin: 1rem 0;
     padding: .85rem 1rem;
     border-radius: 12px;
-    background: #eef3ff;
-    border-left: 5px solid #315bdc;
+    background: var(--surface-2);
+    border-left: 5px solid var(--accent);
 }
 
 .cost-pill {
@@ -853,7 +889,7 @@ td, th {
     display: inline-block;
     padding: .25rem .5rem;
     border-radius: 999px;
-    background: #eef3ff;
+    background: var(--surface-2);
     color: #18233f;
     font-weight: bold;
     font-size: .85rem;
@@ -869,8 +905,8 @@ td, th {
     margin: 1rem 0;
     padding: .85rem 1rem;
     border-radius: 12px;
-    background: #eef3ff;
-    border-left: 5px solid #315bdc;
+    background: var(--surface-2);
+    border-left: 5px solid var(--accent);
 }
 
 .cost-pill {
@@ -894,7 +930,7 @@ td, th {
     display: inline-block;
     padding: .25rem .5rem;
     border-radius: 999px;
-    background: #eef3ff;
+    background: var(--surface-2);
     color: #18233f;
     font-weight: bold;
     font-size: .85rem;
@@ -962,7 +998,7 @@ td, th {
     font-weight: bold;
     text-transform: uppercase;
     letter-spacing: .04em;
-    color: #5d677d;
+    color: var(--muted);
 }
 
 .node-has-warning {
@@ -1095,7 +1131,7 @@ td, th {
     border-radius: 6px;
     border: 1px solid #a9c8ff;
     background: #e6f0ff;   /* hellblau */
-    color: #0b3a8f;        /* dunkler Text */
+    color: var(--accent-dark);        /* dunkler Text */
     cursor: pointer;
 }
 
@@ -1131,8 +1167,8 @@ td, th {
     align-items: center;
     padding: .75rem;
     border-radius: 14px;
-    background: white;
-    border: 1px solid #d6def0;
+    background: var(--surface);
+    border: 1px solid var(--border);
 }
 
 .dashboard-activity {
@@ -1144,7 +1180,7 @@ td, th {
 .dashboard-bar-area {
     height: 32px;
     border-radius: 999px;
-    background: #eef3ff;
+    background: var(--surface-2);
     overflow: hidden;
 }
 
@@ -1203,7 +1239,7 @@ td, th {
 .dashboard-bar-area {
     height: 32px;
     border-radius: 0;
-    background: #eef3ff;
+    background: var(--surface-2);
     overflow: hidden;
 }
 
@@ -1245,12 +1281,12 @@ td, th {
     display: flex;
     gap: .5rem;
     margin: .75rem 0;
-    border-bottom: 2px solid #d6def0;
+    border-bottom: 2px solid var(--border);
 }
 
 .dashboard-tab {
-    background: #eef3ff;
-    color: #1d2433;
+    background: var(--surface-2);
+    color: var(--ink);
     border: 0;
     border-radius: 8px 8px 0 0;
     padding: .6rem 1.1rem;
@@ -1259,7 +1295,7 @@ td, th {
 }
 
 .dashboard-tab.active {
-    background: #315bdc;
+    background: var(--accent);
     color: #fff;
 }
 
@@ -1282,8 +1318,8 @@ td, th {
     margin: 0;
     padding: .75rem;
     border-radius: 14px;
-    background: #fff;
-    border: 1px solid #d6def0;
+    background: var(--surface);
+    border: 1px solid var(--border);
     box-shadow: 0 8px 22px rgba(24, 35, 63, .08);
     min-width: 0;
 }
@@ -1357,7 +1393,7 @@ td, th {
 .dashboard-bar-area-compact {
     height: 24px;
     border-radius: 0;
-    background: #eef3ff;
+    background: var(--surface-2);
     overflow: hidden;
 }
 
@@ -1387,8 +1423,8 @@ td, th {
     max-width: 640px;
     padding: 1rem;
     border-radius: 12px;
-    background: #fff;
-    border: 1px solid #d6def0;
+    background: var(--surface);
+    border: 1px solid var(--border);
 }
 
 .operational-process-warning {

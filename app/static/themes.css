@@ -1,0 +1,72 @@
+/* =========================================================================
+   Erscheinungsbild-Varianten (Styleguides 1a/1b/1c).
+   Jede Variante setzt nur die Design-Variablen neu – das Layout bleibt gleich.
+   Angewendet via [data-theme="..."] auf <html> (global) ODER auf einem
+   einzelnen Element (Live-Vorschau auf der Erscheinungsbild-Seite).
+   Default/Standard liegt in style.css (:root, [data-theme="standard"]).
+   ========================================================================= */
+
+/* 1a — Kanzlei · konservativ, amtlich (Marineblau auf warmem Papier, Serifen) */
+[data-theme="kanzlei"] {
+    --bg: #f6f4ef;
+    --surface: #ffffff;
+    --surface-2: #efeae0;
+    --field: #ffffff;
+    --ink: #1c2536;
+    --muted: #5a6577;
+    --accent: #1f3b63;
+    --accent-dark: #14243d;
+    --on-accent: #ffffff;
+    --border: #ded8cb;
+    --header-bg: #ffffff;
+    --header-ink: #14243d;
+    --status-red: #b23a2e;
+    --font-body: 'IBM Plex Sans', system-ui, Arial, sans-serif;
+    --font-display: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+}
+
+/* 1b — Signal · ausgewogen, modern-behördlich (Azurblau auf kühlem Neutral) */
+[data-theme="signal"] {
+    --bg: #f5f7fa;
+    --surface: #ffffff;
+    --surface-2: #eaf0ff;
+    --field: #ffffff;
+    --ink: #0e1524;
+    --muted: #5b6472;
+    --accent: #2559e6;
+    --accent-dark: #1d48c4;
+    --on-accent: #ffffff;
+    --border: #d4dbe6;
+    --header-bg: #ffffff;
+    --header-ink: #0e1524;
+    --status-red: #d0402e;
+    --font-body: 'IBM Plex Sans', system-ui, Arial, sans-serif;
+    --font-display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* 1c — Twin · mutig, dark (dunkle Bühne, elektrischer Mint-Akzent) */
+[data-theme="twin"] {
+    --bg: #0e1220;
+    --surface: #171c2e;
+    --surface-2: #1f2740;
+    --field: #10182b;
+    --ink: #edf0f7;
+    --muted: #9aa3b8;
+    --accent: #19e3b4;
+    --accent-dark: #12c79e;
+    --on-accent: #08211b;
+    --border: #2a3350;
+    --header-bg: #0b0f1a;
+    --header-ink: #edf0f7;
+    --status-red: #ff5c4d;
+    --font-body: 'Hanken Grotesk', system-ui, Arial, sans-serif;
+    --font-display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* Dark-Theme-Feinschliff: dezente Ränder/Schatten auf dunkler Bühne */
+[data-theme="twin"] .summary,
+[data-theme="twin"] .form-card,
+[data-theme="twin"] section,
+[data-theme="twin"] .org-card {
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+}
