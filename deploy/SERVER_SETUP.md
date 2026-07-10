@@ -82,3 +82,23 @@ Proxy-Mechanismus (analog hermespia.ch). DNS: A-Records für `ditwi.ch`,
 
 Für einen späteren Umzug auf einen Root-/VPS-Server liegt eine nginx-Vorlage unter
 `deploy/nginx-prozess-simulator.conf` bereit.
+
+## Prozess-Überwachung (Watchdog)
+
+Gunicorn läuft via `nohup … &` **ohne Supervisor**. Infomaniak Managed Hosting beendet
+lang laufende Hintergrundprozesse regelmäßig (Wartung/Reboot/Reaper) → dann ist die Seite
+leer (der PHP-Proxy liefert HTTP 200 mit 0 Bytes). Ein **Watchdog-Cron** startet Gunicorn
+bei Bedarf automatisch neu.
+
+Einmalig einrichten:
+```bash
+cp ~/prozess-simulator/deploy/gunicorn-watchdog.sh ~/gunicorn-watchdog.sh
+chmod +x ~/gunicorn-watchdog.sh
+# Cron alle 3 Minuten (crontab -e oder Infomaniak-Panel „Geplante Aufgaben"):
+( crontab -l 2>/dev/null | grep -v 'gunicorn-watchdog.sh'; \
+  echo '*/3 * * * * /bin/bash $HOME/gunicorn-watchdog.sh >> $HOME/tmp/watchdog.log 2>&1' ) | crontab -
+```
+
+`deploy/gunicorn-watchdog.sh` prüft je Umgebung den Port (8010/8011/8012) und startet
+Gunicorn neu, falls `curl …/login` fehlschlägt. Manuell ausführbar als Sofort-Neustart:
+`bash ~/gunicorn-watchdog.sh`.
