@@ -63,6 +63,16 @@
     --font-display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
 }
 
+/* Marken-Umschaltung: in den Varianten tritt eJustice/DiTi zurück, das
+   DigiTwin-Lockup führt (Hauptmarke laut Styleguide). Standard bleibt unverändert. */
+[data-theme="kanzlei"] .brand-standard,
+[data-theme="signal"] .brand-standard,
+[data-theme="twin"] .brand-standard { display: none; }
+
+[data-theme="kanzlei"] .brand-digitwin,
+[data-theme="signal"] .brand-digitwin,
+[data-theme="twin"] .brand-digitwin { display: inline-flex; }
+
 /* Dark-Theme-Feinschliff: dezente Ränder/Schatten auf dunkler Bühne */
 [data-theme="twin"] .summary,
 [data-theme="twin"] .form-card,

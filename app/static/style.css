@@ -514,6 +514,17 @@ td, th {
 }
 .user-bar a:hover { text-decoration: underline; }
 
+/* ── Marken-Lockup im Header (DigiTwin) ─────────────────────────────────── */
+.brand-standard { display: inline-flex; align-items: center; }
+.brand-digitwin { display: none; align-items: center; gap: .65rem; text-decoration: none; }
+.brand-mark { height: 44px; width: auto; display: block; }
+.dt-back { fill: var(--muted); opacity: .5; }
+.dt-front { fill: var(--accent); }
+.dt-eye { fill: var(--on-accent); }
+.brand-words { display: flex; flex-direction: column; line-height: 1; }
+.brand-name { font-family: var(--font-display); font-weight: 600; font-size: 1.55rem; color: var(--header-ink); }
+.brand-sub { font-size: .62rem; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-top: .28rem; }
+
 @media (max-width: 900px) {
     .logo-row {
         grid-template-columns: 1fr;
