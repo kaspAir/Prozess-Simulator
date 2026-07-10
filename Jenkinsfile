@@ -42,7 +42,15 @@ pipeline {
                             pip install --no-cache-dir -r tests/requirements.txt
                             mkdir -p reports
                             set +e
-                            pytest tests/ -v --junitxml=reports/junit.xml
+                            # Kalibrierte CI: dev faehrt nur die schnelle Suite ohne den
+                            # gestuften TC-Katalog; test/int/main fahren alles.
+                            if echo "$JOB_NAME" | grep -q dev; then
+                                echo "dev: schnelle Suite (ohne Teststufe-Faelle)"
+                                pytest tests/ -v -m "not teststufe" --junitxml=reports/junit.xml
+                            else
+                                echo "test/int/main: vollstaendige Suite inkl. TC-Katalog"
+                                pytest tests/ -v --junitxml=reports/junit.xml
+                            fi
                             rc=$?
                             set -e
                             # Reproduzierbares, lesbares Testprotokoll erzeugen (auch bei Fehlschlag)

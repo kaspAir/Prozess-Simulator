@@ -12,6 +12,7 @@ Umsystemen (z. B. Organigramm-/Prozess-Import).
 
 # Reihenfolge = Prioritaet: erste passende Regel gewinnt. Teilstring-Match (lower).
 CLASSIFICATION = [
+    ("test_teststufe",  "Fachliche Testfälle (TC-Katalog, ab test)"),
     ("test_functional", "Fachliche Testfälle"),
     ("test_domain",     "Fachliche Testfälle"),
     ("test_auth",       "Komponententest"),

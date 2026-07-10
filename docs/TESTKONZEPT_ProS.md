@@ -20,6 +20,11 @@ Auf «ist das getestet?» antwortet ein Dokument, kein «ja».
 ## Kalibrierte CI (Jenkins)
 
 - **Bei jedem Build:** schnelle deterministische Suite (`pytest`) + statische Analyse.
+- **Gestufter TC-Katalog:** Fälle mit dem Marker `teststufe` (`tests/test_teststufe_tc.py`,
+  TC-001..025 aus «Testfälle DigiTwin») laufen **nicht auf dev**, sondern erst ab
+  **test**. Steuerung: dev fährt `pytest -m "not teststufe"`, test/int/main die volle
+  Suite. Noch nicht automatisierbare TCs (fehlende Funktion / kein Orakel) sind als
+  `skip` mit Begründung markiert und erscheinen transparent als «übersprungen».
 - **Nach Deploy (test/int/main):** nicht-destruktiver Health-Check auf `/health`.
 - **Schwere Suiten** (Systemintegration, Last, dynamische Sicherheit): erst wenn echte
   Umsysteme existieren – dann auf Promotion/geplant, nicht pro Commit.
@@ -47,6 +52,7 @@ Die Zuordnung Testmodul → Testart liegt als Konfiguration in
 
 | Modul | Testart | Schnittstelle |
 |-------|---------|---------------|
+| `test_teststufe_tc` | Fachliche Testfälle (TC-Katalog, **ab test**) | mock |
 | `test_functional_*` | Fachliche Testfälle | mock |
 | `test_domain` | Fachliche Testfälle | mock |
 | `test_auth` | Komponententest | mock |
