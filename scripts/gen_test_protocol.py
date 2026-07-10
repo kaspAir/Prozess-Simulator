@@ -115,6 +115,14 @@ def build_markdown(cases, total_time, env, commit, job):
                      f"{a['failed']} | {a['skipped']} |")
     lines.append("")
 
+    lines.append("## Einzelne Testfälle")
+    lines.append("")
+    lines.append("| # | Testart | Testfall | Ergebnis |")
+    lines.append("|--:|---------|----------|----------|")
+    for i, c in enumerate(sorted(cases, key=lambda c: (c["testart"], c["name"])), start=1):
+        lines.append(f"| {i} | {c['testart']} | {humanize(c['name'])} | {status_de(c['status'])} |")
+    lines.append("")
+
     fails = [c for c in cases if c["status"] in ("failed", "error")]
     if fails:
         lines.append("## Fehlgeschlagene Tests")
@@ -218,6 +226,42 @@ def build_pdf(path, cases, total_time, env, commit, job):
     ]))
     story.append(at)
 
+    # Einzelne Testfälle (Transparenz: jeder Test einzeln)
+    story.append(Paragraph("Einzelne Testfälle", h2))
+    green_c = colors.HexColor("#0b6b3a")
+    red_c = colors.HexColor("#b00020")
+    grey_c = colors.HexColor("#555b66")
+    detail = [["#", "Testart", "Testfall", "Ergebnis"]]
+    row_colors = []
+    for i, c in enumerate(sorted(cases, key=lambda c: (c["testart"], c["name"])), start=1):
+        detail.append([
+            str(i),
+            Paragraph(esc(c["testart"]), cell),
+            Paragraph(esc(humanize(c["name"])), cell),
+            status_de(c["status"]),
+        ])
+        row_colors.append(green_c if c["status"] == "passed"
+                          else grey_c if c["status"] == "skipped" else red_c)
+    dt = Table(detail, colWidths=[10 * mm, 45 * mm, 90 * mm, 25 * mm], repeatRows=1)
+    dstyle = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#315bdc")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+        ("ALIGN", (0, 0), (0, -1), "RIGHT"),
+        ("ALIGN", (3, 0), (3, -1), "CENTER"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f7fb")]),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#d6def0")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]
+    for idx, col in enumerate(row_colors, start=1):
+        dstyle.append(("TEXTCOLOR", (3, idx), (3, idx), col))
+        dstyle.append(("FONTNAME", (3, idx), (3, idx), "Helvetica-Bold"))
+    dt.setStyle(TableStyle(dstyle))
+    story.append(dt)
+
     fails = [c for c in cases if c["status"] in ("failed", "error")]
     if fails:
         story.append(Paragraph("Fehlgeschlagene Tests", h2))
@@ -239,6 +283,22 @@ def build_pdf(path, cases, total_time, env, commit, job):
 
 def esc(s):
     return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def humanize(name):
+    """Macht aus dem pytest-Namen einen lesbaren Testfall-Titel."""
+    n = name or ""
+    if n.startswith("test_"):
+        n = n[5:]
+    return n.replace("_", " ").strip() or name
+
+
+STATUS_DE = {"passed": "bestanden", "failed": "fehlgeschlagen",
+             "error": "fehlgeschlagen", "skipped": "übersprungen"}
+
+
+def status_de(status):
+    return STATUS_DE.get(status, status)
 
 
 def markdown_to_html(md):
