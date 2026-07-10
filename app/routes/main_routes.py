@@ -1,7 +1,10 @@
 import os
 from datetime import datetime, timezone
 
-from flask import Blueprint, redirect, url_for, render_template, request, session, jsonify
+from flask import (
+    Blueprint, redirect, url_for, render_template, request, session, jsonify,
+    send_file, flash, current_app,
+)
 from flask_login import current_user
 from sqlalchemy import text
 
@@ -12,10 +15,30 @@ from app.dashboard import (
     operational_dashboard_for_process,
     PERIOD_LABELS,
 )
-from app.auth.permissions import P_DASHBOARD_VIEW
+from app.auth.permissions import P_DASHBOARD_VIEW, P_ACCOUNT_MEMBERS
 from app.auth.service import require_permission, current_account_id
 
 main_bp = Blueprint("main", __name__)
+
+
+def _protocol_dir():
+    """Verzeichnis, in das der Deploy das Testprotokoll kopiert (App-Root/data)."""
+    return os.environ.get("PROTOCOL_DIR") or os.path.join(
+        os.path.dirname(current_app.root_path), "data")
+
+
+@main_bp.route("/test-protocol.pdf")
+@require_permission(P_ACCOUNT_MEMBERS)
+def test_protocol_pdf():
+    """Liefert das PDF-Testprotokoll des zuletzt auf diese Umgebung deployten Builds
+    (vom Deploy nach data/ kopiert). Nur für Verwaltungsberechtigte."""
+    path = os.path.join(_protocol_dir(), "test-protocol.pdf")
+    if not os.path.isfile(path):
+        flash("Es liegt noch kein Testprotokoll vor – es entsteht beim nächsten "
+              "Deploy dieser Umgebung.", "error")
+        return redirect(url_for("main.dashboard"))
+    return send_file(path, mimetype="application/pdf", as_attachment=False,
+                     download_name="Testprotokoll_Prozess-Simulator.pdf")
 
 
 @main_bp.route("/")

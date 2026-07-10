@@ -83,6 +83,7 @@
         {% endif %}
         {% if current_user.is_super_admin or current_user_can('account.members.manage') %}
             <a href="{{ url_for('admin.logins') }}">Logins</a>
+            <a href="{{ url_for('main.test_protocol_pdf') }}" title="PDF-Testprotokoll des zuletzt deployten Builds">Testprotokoll</a>
         {% endif %}
         {% if current_user.is_super_admin %}
             <a href="{{ url_for('admin.accounts') }}">Accounts</a>

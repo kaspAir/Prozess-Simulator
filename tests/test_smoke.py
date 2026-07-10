@@ -42,6 +42,23 @@ def test_core_routes_ok_when_logged_in(app, client):
         assert client.get(url, follow_redirects=True).status_code == 200
 
 
+def test_test_protocol_requires_admin(app, client):
+    from app.auth.permissions import P_DASHBOARD_VIEW
+    make_account_with_role(app, "Viewer", {P_DASHBOARD_VIEW}, email="viewer3@test.ch")
+    login(client, "viewer3@test.ch")
+    assert client.get("/test-protocol.pdf").status_code == 403
+
+
+def test_test_protocol_download_when_present(app, client, tmp_path, monkeypatch):
+    monkeypatch.setenv("PROTOCOL_DIR", str(tmp_path))
+    (tmp_path / "test-protocol.pdf").write_bytes(b"%PDF-1.4 dummy")
+    _admin(app)
+    login(client, "admin@test.ch")
+    resp = client.get("/test-protocol.pdf")
+    assert resp.status_code == 200
+    assert resp.mimetype == "application/pdf"
+
+
 def test_appearance_page_lists_all_themes(app, client):
     _admin(app)
     login(client, "admin@test.ch")

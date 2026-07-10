@@ -117,6 +117,7 @@ pipeline {
                             sleep 2 && curl -sf http://127.0.0.1:8010/health > /dev/null && echo "OK: prod Health-Check gruen"
                         '
                     """
+                    sh "scp -o StrictHostKeyChecking=no reports/test-protocol.pdf ${DEPLOY_HOST}:prozess-simulator/data/test-protocol.pdf || echo 'kein Protokoll zum Kopieren'"
                 }
             }
         }
@@ -153,6 +154,7 @@ pipeline {
                             sleep 2 && curl -sf http://127.0.0.1:8012/health > /dev/null && echo "OK: integration Health-Check gruen"
                         '
                     """
+                    sh "scp -o StrictHostKeyChecking=no reports/test-protocol.pdf ${DEPLOY_HOST}:prozess-simulator-int/data/test-protocol.pdf || echo 'kein Protokoll zum Kopieren'"
                 }
             }
         }
@@ -189,6 +191,7 @@ pipeline {
                             sleep 2 && curl -sf http://127.0.0.1:8011/health > /dev/null && echo "OK: test Health-Check gruen"
                         '
                     """
+                    sh "scp -o StrictHostKeyChecking=no reports/test-protocol.pdf ${DEPLOY_HOST}:prozess-simulator-test/data/test-protocol.pdf || echo 'kein Protokoll zum Kopieren'"
                 }
             }
         }
