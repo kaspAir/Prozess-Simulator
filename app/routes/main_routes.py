@@ -1,7 +1,12 @@
-from flask import Blueprint, redirect, url_for, render_template, request, session
-from flask_login import current_user
+import os
+from datetime import datetime, timezone
 
-from app.models import Process
+from flask import Blueprint, redirect, url_for, render_template, request, session, jsonify
+from flask_login import current_user
+from sqlalchemy import text
+
+from app.models import Process, db
+from app.version import APP_VERSION
 from app.dashboard import (
     dashboard_for_process,
     operational_dashboard_for_process,
@@ -16,6 +21,26 @@ main_bp = Blueprint("main", __name__)
 @main_bp.route("/")
 def index():
     return redirect(url_for("main.dashboard"))
+
+
+@main_bp.route("/health")
+def health():
+    """Nicht-destruktiver Health-Check (ohne Login): prüft App-Erreichbarkeit und
+    DB-Verbindung. Basis für den Post-Deploy-Smoke-Check und späteres Monitoring.
+    200 = ok, 503 = degraded (z. B. DB nicht erreichbar)."""
+    db_ok = True
+    try:
+        db.session.execute(text("SELECT 1"))
+    except Exception:
+        db_ok = False
+    payload = {
+        "status": "ok" if db_ok else "degraded",
+        "database": "ok" if db_ok else "error",
+        "version": APP_VERSION,
+        "commit": os.getenv("GIT_COMMIT"),
+        "time": datetime.now(timezone.utc).isoformat(),
+    }
+    return jsonify(payload), (200 if db_ok else 503)
 
 
 @main_bp.route("/appearance")

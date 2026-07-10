@@ -20,6 +20,15 @@ def test_login_page_ok(client):
     assert client.get("/login").status_code == 200
 
 
+def test_health_ok_without_login(client):
+    resp = client.get("/health")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["status"] == "ok"
+    assert data["database"] == "ok"
+    assert data["version"]
+
+
 def test_dashboard_ok_when_logged_in(app, client):
     _admin(app)
     login(client, "admin@test.ch")

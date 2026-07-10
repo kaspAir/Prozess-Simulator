@@ -32,7 +32,7 @@ from app.auth import login_manager
 
 
 # Endpunkte, die ohne Login erreichbar sind
-PUBLIC_ENDPOINTS = {"auth.login", "auth.accept_invite", "static"}
+PUBLIC_ENDPOINTS = {"auth.login", "auth.accept_invite", "static", "main.health"}
 
 
 def create_app():

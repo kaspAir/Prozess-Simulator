@@ -40,7 +40,16 @@ pipeline {
                         sh '''
                             python --version
                             pip install --no-cache-dir -r tests/requirements.txt
+                            mkdir -p reports
+                            set +e
                             pytest tests/ -v --junitxml=reports/junit.xml
+                            rc=$?
+                            set -e
+                            # Reproduzierbares, lesbares Testprotokoll erzeugen (auch bei Fehlschlag)
+                            python scripts/gen_test_protocol.py \
+                                --junit reports/junit.xml --out reports/test-protocol.md \
+                                --job "$JOB_NAME" --commit "${GIT_COMMIT:-}"
+                            exit $rc
                         '''
                     }
                 }
@@ -48,6 +57,30 @@ pipeline {
             post {
                 always {
                     junit 'reports/junit.xml'
+                    archiveArtifacts artifacts: 'reports/*', allowEmptyArchive: true
+                }
+            }
+        }
+
+        stage('Statische Analyse') {
+            steps {
+                script {
+                    docker.image('python:3.12-slim').inside('-u root') {
+                        sh '''
+                            pip install --no-cache-dir ruff bandit pip-audit
+                            mkdir -p reports
+                            # advisory: brechen den Build (noch) nicht ab, Reports werden archiviert
+                            ruff check app scripts run.py > reports/ruff.txt 2>&1 || true
+                            bandit -r app -q -f txt -o reports/bandit.txt || true
+                            pip-audit -r requirements.txt -f markdown -o reports/pip-audit.md || true
+                            echo "Statische Analyse abgeschlossen (advisory)."
+                        '''
+                    }
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'reports/ruff.txt, reports/bandit.txt, reports/pip-audit.md', allowEmptyArchive: true
                 }
             }
         }
@@ -65,6 +98,7 @@ pipeline {
                             git remote set-url origin ${REPO_URL}
                             git fetch origin
                             git reset --hard origin/main
+                            export GIT_COMMIT=\$(git rev-parse --short HEAD)
                             if [ ! -f .venv/bin/activate ]; then rm -rf .venv; { python3 -m pip install --user -q virtualenv || pip install --user -q virtualenv; }; { python3 -m virtualenv .venv || \$HOME/.local/bin/virtualenv .venv; }; fi
                             if [ ! -f .venv/bin/activate ]; then echo "FEHLER: venv konnte nicht erstellt werden (.venv/bin/activate fehlt)"; exit 1; fi
                             . .venv/bin/activate
@@ -80,7 +114,7 @@ pipeline {
                                 --access-logfile logs/access.log \\
                                 --error-logfile logs/error.log > /dev/null 2>&1 &
                             echo \$! > "\$PID_FILE"
-                            sleep 2 && curl -sf http://127.0.0.1:8010 > /dev/null && echo "OK: prod laeuft"
+                            sleep 2 && curl -sf http://127.0.0.1:8010/health > /dev/null && echo "OK: prod Health-Check gruen"
                         '
                     """
                 }
@@ -100,6 +134,7 @@ pipeline {
                             git remote set-url origin ${REPO_URL}
                             git fetch origin
                             git reset --hard origin/integration
+                            export GIT_COMMIT=\$(git rev-parse --short HEAD)
                             if [ ! -f .venv/bin/activate ]; then rm -rf .venv; { python3 -m pip install --user -q virtualenv || pip install --user -q virtualenv; }; { python3 -m virtualenv .venv || \$HOME/.local/bin/virtualenv .venv; }; fi
                             if [ ! -f .venv/bin/activate ]; then echo "FEHLER: venv konnte nicht erstellt werden (.venv/bin/activate fehlt)"; exit 1; fi
                             . .venv/bin/activate
@@ -115,7 +150,7 @@ pipeline {
                                 --access-logfile logs/access.log \\
                                 --error-logfile logs/error.log > /dev/null 2>&1 &
                             echo \$! > "\$PID_FILE"
-                            sleep 2 && curl -sf http://127.0.0.1:8012 > /dev/null && echo "OK: integration laeuft"
+                            sleep 2 && curl -sf http://127.0.0.1:8012/health > /dev/null && echo "OK: integration Health-Check gruen"
                         '
                     """
                 }
@@ -135,6 +170,7 @@ pipeline {
                             git remote set-url origin ${REPO_URL}
                             git fetch origin
                             git reset --hard origin/test
+                            export GIT_COMMIT=\$(git rev-parse --short HEAD)
                             if [ ! -f .venv/bin/activate ]; then rm -rf .venv; { python3 -m pip install --user -q virtualenv || pip install --user -q virtualenv; }; { python3 -m virtualenv .venv || \$HOME/.local/bin/virtualenv .venv; }; fi
                             if [ ! -f .venv/bin/activate ]; then echo "FEHLER: venv konnte nicht erstellt werden (.venv/bin/activate fehlt)"; exit 1; fi
                             . .venv/bin/activate
@@ -150,7 +186,7 @@ pipeline {
                                 --access-logfile logs/access.log \\
                                 --error-logfile logs/error.log > /dev/null 2>&1 &
                             echo \$! > "\$PID_FILE"
-                            sleep 2 && curl -sf http://127.0.0.1:8011 > /dev/null && echo "OK: test laeuft"
+                            sleep 2 && curl -sf http://127.0.0.1:8011/health > /dev/null && echo "OK: test Health-Check gruen"
                         '
                     """
                 }

@@ -1,3 +1,8 @@
 # Test-Abhaengigkeiten (zusaetzlich zu requirements.txt)
 -r ../requirements.txt
 pytest>=8.0.0
+
+# Statische Analyse / Sicherheit (Baustein 3, in der CI advisory)
+ruff>=0.6.0        # Linter
+bandit>=1.7.0      # Python-SAST
+pip-audit>=2.7.0   # Abhaengigkeits-CVEs

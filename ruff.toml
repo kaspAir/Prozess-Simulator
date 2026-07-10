@@ -1,0 +1,10 @@
+# Linter-Konfiguration (in der CI advisory – bricht den Build vorerst nicht ab).
+line-length = 120
+
+[lint]
+select = ["E", "F", "W"]
+ignore = ["E501"]   # Zeilenlaenge nicht hart erzwingen
+
+[lint.per-file-ignores]
+"tests/*" = ["E402"]
+"scripts/*" = ["E402"]
