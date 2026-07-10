@@ -12,7 +12,8 @@ def get_organization_overview(org_id=None):
     selected_org = None
     if org_id:
         selected_org = Organization.query.filter_by(id=org_id, account_id=account_id).first()
-    elif organizations:
+    # Fallback (auch bei ungueltiger/geloeschter org_id): erste Organisation
+    if selected_org is None and organizations:
         selected_org = organizations[0]
 
     root_units = []

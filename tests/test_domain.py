@@ -147,6 +147,22 @@ def test_viewer_cannot_delete_organization(app, client):
     assert client.post("/organization/delete/1").status_code == 403
 
 
+def test_org_selection_persists_across_navigation(app, client):
+    """B-02: gewählte Organisation bleibt bei Navigation ohne org_id erhalten."""
+    _admin(app, client)
+    client.post("/organization/edit", data={"name": "AAA Amt"}, follow_redirects=True)
+    client.post("/organization/edit", data={"name": "ZZZ Amt"}, follow_redirects=True)
+    with app.app_context():
+        from app.models import Organization
+        zid = Organization.query.filter_by(name="ZZZ Amt").first().id
+    # ZZZ explizit wählen
+    r1 = client.get(f"/organization/?org_id={zid}")
+    assert "Personen – ZZZ Amt" in r1.get_data(as_text=True)
+    # erneuter Aufruf OHNE org_id -> muss weiterhin ZZZ zeigen (nicht AAA)
+    r2 = client.get("/organization/")
+    assert "Personen – ZZZ Amt" in r2.get_data(as_text=True)
+
+
 def test_viewer_cannot_create_organization(app, client):
     from app.auth.permissions import P_DASHBOARD_VIEW
     make_account_with_role(app, "Viewer", {P_DASHBOARD_VIEW}, email="v@test.ch")

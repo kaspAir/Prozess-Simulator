@@ -1240,6 +1240,37 @@ td, th {
     margin-bottom: 1rem;
 }
 
+/* B-01: Tab-Umschaltung – nur der aktive Bereich ist sichtbar (Standard: strategisch) */
+.dashboard-tabs {
+    display: flex;
+    gap: .5rem;
+    margin: .75rem 0;
+    border-bottom: 2px solid #d6def0;
+}
+
+.dashboard-tab {
+    background: #eef3ff;
+    color: #1d2433;
+    border: 0;
+    border-radius: 8px 8px 0 0;
+    padding: .6rem 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.dashboard-tab.active {
+    background: #315bdc;
+    color: #fff;
+}
+
+.dashboard-tab-panel {
+    display: none;
+}
+
+.dashboard-tab-panel.active {
+    display: block;
+}
+
 .dashboard-grid-executive {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));

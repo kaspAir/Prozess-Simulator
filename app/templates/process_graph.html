@@ -193,6 +193,7 @@
 document.addEventListener("DOMContentLoaded", function () {
     const canvas = document.getElementById("bpmn-canvas");
     const svg = document.getElementById("bpmn-svg");
+    if (!canvas || !svg) return;  // B-07: ohne Canvas kein Skriptabbruch
     const processId = canvas.dataset.processId;
     const connectButton = document.getElementById("connect-mode");
 
@@ -457,7 +458,9 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         wrap.addEventListener("dblclick", function () {
-            window.open(wrap.dataset.editUrl, "_blank");
+            // B-08: im gleichen Fenster oeffnen (neues Tab wurde teils vom
+            // Popup-Blocker verschluckt -> "Bearbeiten reagiert nicht").
+            window.location.href = wrap.dataset.editUrl;
         });
     });
 
@@ -555,6 +558,9 @@ document.addEventListener("DOMContentLoaded", function () {
     canvas.addEventListener("scroll", renderEdges);
     renderEdges();
     window.addEventListener("resize", renderEdges);
+    // B-07: Kanten nach vollstaendigem Laden (Schriften/Layout) erneut zeichnen,
+    // damit die Ansicht nicht gelegentlich ohne/mit falschen Verbindungen bleibt.
+    window.addEventListener("load", renderEdges);
 });
 </script>
 {% endblock %}

@@ -44,11 +44,19 @@ def create_app():
     # Standard ist SQLite (kein DB-Server noetig). Fuer PostgreSQL einfach
     # DATABASE_URL setzen, z. B.
     # postgresql+psycopg2://user:pass@host:5432/prozess_simulator
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-        "DATABASE_URL",
-        "sqlite:///prozess_simulator.db",
-    )
+    db_uri = os.getenv("DATABASE_URL", "sqlite:///prozess_simulator.db")
+    app.config["SQLALCHEMY_DATABASE_URI"] = db_uri
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+    # B-09/B-07: MariaDB schliesst inaktive Verbindungen (wait_timeout). Ohne
+    # pool_pre_ping liefert die naechste Anfrage nach kurzer Inaktivitaet einen
+    # Fehler ("MySQL server has gone away"), der erst nach Reload verschwindet.
+    # pool_pre_ping prueft die Verbindung vor Gebrauch, pool_recycle erneuert sie
+    # vorsorglich. Fuer SQLite (Tests/lokal) nicht noetig.
+    engine_options = {"pool_pre_ping": True}
+    if not db_uri.startswith("sqlite"):
+        engine_options["pool_recycle"] = 280
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = engine_options
 
     db.init_app(app)
     login_manager.init_app(app)

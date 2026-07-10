@@ -1,5 +1,5 @@
 from flask import (
-    Blueprint, render_template, request, abort, redirect, url_for, flash,
+    Blueprint, render_template, request, abort, redirect, url_for, flash, session,
 )
 from flask_login import current_user
 
@@ -39,8 +39,16 @@ def _ids(field):
 # ── Übersicht ────────────────────────────────────────────────────────────
 @organization_bp.route("/")
 def organization():
+    # B-02: zuletzt gewaehlte Organisation ueber Navigation hinweg merken,
+    # statt bei jedem Aufruf auf die erste zurueckzufallen.
     org_id = request.args.get("org_id", type=int)
+    if org_id:
+        session["org_overview_id"] = org_id
+    else:
+        org_id = session.get("org_overview_id")
     data = get_organization_overview(org_id)
+    # tatsaechlich angezeigte Organisation zurueckschreiben (auch nach Fallback)
+    session["org_overview_id"] = data["selected_org"].id if data["selected_org"] else None
     return render_template("organization.html", **data)
 
 
