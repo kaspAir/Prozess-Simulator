@@ -16,7 +16,7 @@
     </label>
 
     <label>Aufwand in Minuten
-        <input name="effort_minutes" type="number" step="0.1" value="{{ node.effort_minutes or 0 }}">
+        <input name="effort_minutes" type="number" step="0.1" min="0" value="{{ node.effort_minutes or 0 }}">
     </label>
 
     <label>Sortierung

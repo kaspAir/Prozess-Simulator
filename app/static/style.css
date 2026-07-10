@@ -509,7 +509,9 @@ td, th {
 
 .org-chart {
     display: flex;
-    justify-content: center;
+    /* "safe center": zentriert bei Platz, faellt bei breiten Organigrammen auf
+       flex-start zurueck, damit der linke Rand scrollbar bleibt (B-10). */
+    justify-content: safe center;
     overflow-x: auto;
     padding: 1rem 0 2rem 0;
 }
@@ -1349,27 +1351,13 @@ td, th {
     margin-bottom: 1rem;
 }
 
+/* Aufbau wie die Simulation: vertikaler Stapel, einheitliche Feldbreiten (B-11) */
 .operational-form {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .75rem;
-    align-items: end;
-    padding: .75rem;
+    max-width: 640px;
+    padding: 1rem;
     border-radius: 12px;
     background: #fff;
     border: 1px solid #d6def0;
-}
-
-.operational-form label {
-    display: flex;
-    flex-direction: column;
-    gap: .25rem;
-    font-weight: bold;
-}
-
-.operational-form input,
-.operational-form select {
-    min-width: 180px;
 }
 
 .operational-process-warning {

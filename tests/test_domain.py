@@ -86,6 +86,67 @@ def test_add_subunit_and_position(app, client):
         assert stelle.parent_id == pid and stelle.unit_type == "Stelle"
 
 
+def test_person_fte_above_one_rejected(app, client):
+    """B-03: FTE > 1.0 darf nicht gespeichert werden."""
+    _admin(app, client)
+    r = client.post("/organization/person/edit",
+                    data={"name": "Zu viel FTE", "annual_salary": "120000", "fte": "1.5"},
+                    follow_redirects=True)
+    assert r.status_code == 200
+    with app.app_context():
+        from app.models import Person
+        assert Person.query.filter_by(name="Zu viel FTE").first() is None
+
+
+def test_person_negative_salary_rejected(app, client):
+    """B-04: negatives Jahresgehalt darf nicht gespeichert werden."""
+    _admin(app, client)
+    r = client.post("/organization/person/edit",
+                    data={"name": "Minusgehalt", "annual_salary": "-5000", "fte": "1.0"},
+                    follow_redirects=True)
+    assert r.status_code == 200
+    with app.app_context():
+        from app.models import Person
+        assert Person.query.filter_by(name="Minusgehalt").first() is None
+
+
+def test_duplicate_org_name_rejected(app, client):
+    """B-06: keine zwei Organisationen mit gleichem Namen im selben Account."""
+    _admin(app, client)
+    client.post("/organization/edit", data={"name": "OLL"}, follow_redirects=True)
+    client.post("/organization/edit", data={"name": "OLL"}, follow_redirects=True)
+    with app.app_context():
+        from app.models import Organization
+        assert Organization.query.filter_by(name="OLL").count() == 1
+
+
+def test_delete_organization(app, client):
+    """B-06: Duplikat/Organisation kann gelöscht werden; Person bleibt erhalten."""
+    _admin(app, client)
+    client.post("/organization/edit", data={"name": "ZuLoeschen"}, follow_redirects=True)
+    with app.app_context():
+        from app.models import Organization
+        oid = Organization.query.filter_by(name="ZuLoeschen").first().id
+    client.post("/organization/person/edit",
+                data={"name": "Bleibt Erhalten", "annual_salary": "100000", "fte": "1.0",
+                      "organization_id": str(oid)}, follow_redirects=True)
+    r = client.post(f"/organization/delete/{oid}", follow_redirects=True)
+    assert r.status_code == 200
+    with app.app_context():
+        from app.models import Organization, Person
+        assert Organization.query.get(oid) is None
+        p = Person.query.filter_by(name="Bleibt Erhalten").first()
+        assert p is not None and p.organization_id is None
+
+
+def test_viewer_cannot_delete_organization(app, client):
+    """Löschen erfordert Organigramm-Verwaltungsrecht, nicht nur Ansicht."""
+    from app.auth.permissions import P_DASHBOARD_VIEW
+    make_account_with_role(app, "Viewer", {P_DASHBOARD_VIEW}, email="v2@test.ch")
+    login(client, "v2@test.ch")
+    assert client.post("/organization/delete/1").status_code == 403
+
+
 def test_viewer_cannot_create_organization(app, client):
     from app.auth.permissions import P_DASHBOARD_VIEW
     make_account_with_role(app, "Viewer", {P_DASHBOARD_VIEW}, email="v@test.ch")

@@ -104,7 +104,8 @@ def node_edit(process_id, node_id=None):
         node.process = process
         node.name = request.form["name"]
         node.type = request.form["type"]
-        node.effort_minutes = float(request.form.get("effort_minutes") or 0)
+        # B-04: negativer Aufwand ist nicht zulaessig -> auf 0 begrenzen
+        node.effort_minutes = max(0.0, float(request.form.get("effort_minutes") or 0))
         node.legal_basis = request.form.get("legal_basis")
         node.sort_order = int(request.form.get("sort_order") or 0)
         node.x = float(request.form.get("x") or node.x or 120)

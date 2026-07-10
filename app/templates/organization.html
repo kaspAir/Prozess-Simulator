@@ -113,6 +113,11 @@
             {% if selected_org %}
                 <a class="button" href="{{ url_for('organization.organization_edit', organization_id=selected_org.id) }}">Organisation bearbeiten</a>
                 <a class="button" href="{{ url_for('organization.org_unit_edit', organization_id=selected_org.id) }}">Einheit hinzufügen</a>
+                <form method="post" style="display:inline"
+                      action="{{ url_for('organization.organization_delete', organization_id=selected_org.id) }}"
+                      onsubmit="return confirm('Organisation «{{ selected_org.name }}» wirklich löschen? Ihre Einheiten und Stellen werden entfernt. Personen bleiben erhalten (ohne Organisation).');">
+                    <button class="button danger" type="submit">Organisation löschen</button>
+                </form>
             {% endif %}
         </div>
     </div>

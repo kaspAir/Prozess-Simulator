@@ -4,11 +4,11 @@
     <div class="section-title">
         <h2>{{ process.name }}</h2>
         <div>
-            <a class="button" href="{{ url_for('process.node_edit', process_id=process.id) }}" target="_blank">Node hinzufügen</a>
+            <a class="button" href="{{ url_for('process.node_edit', process_id=process.id) }}">Node hinzufügen</a>
             <button type="button" class="button" id="connect-mode">Verbindung zeichnen</button>
-            <a class="button" href="{{ url_for('process.edge_edit', process_id=process.id) }}" target="_blank">Flow per Formular</a>
-            <a class="button" href="{{ url_for('process.process_edit', parent_id=process.id) }}" target="_blank">Subprozess erstellen</a>
-            <a class="button" href="{{ url_for('process.process_edit', process_id=process.id) }}" target="_blank">Prozess bearbeiten</a>
+            <a class="button" href="{{ url_for('process.edge_edit', process_id=process.id) }}">Flow per Formular</a>
+            <a class="button" href="{{ url_for('process.process_edit', parent_id=process.id) }}">Subprozess erstellen</a>
+            <a class="button" href="{{ url_for('process.process_edit', process_id=process.id) }}">Prozess bearbeiten</a>
             {% if process.parent %}
                 <a class="button" href="{{ url_for('process.process_graph', process_id=process.parent.id) }}">Zurück</a>
             {% endif %}
@@ -157,7 +157,7 @@
                     {% endif %}
                 </div>
 
-                <a class="mini-edit" href="{{ url_for('process.node_edit', process_id=process.id, node_id=node.id) }}" target="_blank">✎</a>
+                <a class="mini-edit" href="{{ url_for('process.node_edit', process_id=process.id, node_id=node.id) }}">✎</a>
             </div>
         {% endfor %}
     </div>
@@ -166,7 +166,7 @@
 <section>
     <div class="section-title">
         <h2>Sequenzflüsse</h2>
-        <a class="button" href="{{ url_for('process.edge_edit', process_id=process.id) }}" target="_blank">Flow hinzufügen</a>
+        <a class="button" href="{{ url_for('process.edge_edit', process_id=process.id) }}">Flow hinzufügen</a>
     </div>
     <table id="edge-table">
         <tr><th>Von</th><th>Bedingung</th><th>Wahrscheinlichkeit</th><th>Nach</th><th>Aktion</th></tr>
@@ -181,7 +181,7 @@
                 <td>{% if edge.probability_percent is not none %}{{ "%.1f"|format(edge.probability_percent) }}%{% endif %}</td>
                 <td>{{ edge.target_node.name }}</td>
                 <td class="edge-actions">
-                    <a href="{{ url_for('process.edge_edit', process_id=process.id, edge_id=edge.id) }}" target="_blank">bearbeiten</a>
+                    <a href="{{ url_for('process.edge_edit', process_id=process.id, edge_id=edge.id) }}">bearbeiten</a>
                     <button class="link-danger edge-delete-button" type="button" data-edge-id="{{ edge.id }}">löschen</button>
                 </td>
             </tr>

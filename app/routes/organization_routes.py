@@ -3,7 +3,9 @@ from flask import (
 )
 from flask_login import current_user
 
-from app.models import db, Organization, OrgUnit, Role, Function, Person
+from app.models import (
+    db, Organization, OrgUnit, Role, Function, Person, RoleAssignment, Invitation,
+)
 
 from app.services.organization_service import get_organization_overview
 from app.auth.permissions import P_DASHBOARD_VIEW, P_ORGCHART_MANAGE, P_PERSONS_MANAGE
@@ -17,8 +19,8 @@ def _guard():
     ep = (request.endpoint or "").split(".")[-1]
     if ep == "person_edit":
         need = P_PERSONS_MANAGE
-    elif ep in ("organization_edit", "org_unit_edit", "org_unit_delete",
-                "role_edit", "function_edit"):
+    elif ep in ("organization_edit", "organization_delete", "org_unit_edit",
+                "org_unit_delete", "role_edit", "function_edit"):
         need = P_ORGCHART_MANAGE
     else:
         need = P_DASHBOARD_VIEW
@@ -54,8 +56,19 @@ def organization_edit(organization_id=None):
         abort(404)
 
     if request.method == "POST":
-        organization.name = (request.form.get("name") or "").strip()
-        organization.description = (request.form.get("description") or "").strip() or None
+        name = (request.form.get("name") or "").strip()
+        description = (request.form.get("description") or "").strip() or None
+
+        # B-06: keine zwei Organisationen mit gleichem Namen im selben Account
+        dup = Organization.query.filter_by(account_id=_acc(), name=name).first()
+        if name and dup and dup.id != organization.id:
+            flash(f"Es gibt bereits eine Organisation «{name}».", "error")
+            organization.name = name
+            organization.description = description
+            return render_template("organization_edit.html", organization=organization)
+
+        organization.name = name
+        organization.description = description
         if organization.id is None:
             organization.account_id = _acc()
             db.session.add(organization)
@@ -64,6 +77,28 @@ def organization_edit(organization_id=None):
         return redirect(url_for("organization.organization", org_id=organization.id))
 
     return render_template("organization_edit.html", organization=organization)
+
+
+# ── Organisation löschen ────────────────────────────────────────────────────
+@organization_bp.route("/delete/<int:organization_id>", methods=["POST"])
+def organization_delete(organization_id):
+    org = Organization.query.filter_by(id=organization_id, account_id=_acc()).first()
+    if org is None:
+        abort(404)
+    name = org.name
+
+    # Personen bleiben erhalten, werden aber von dieser Organisation gelöst.
+    for p in list(org.persons):
+        p.organization_id = None
+    # Org-spezifische Rollenzuweisungen/Einladungen verlieren mit der Org ihre Bedeutung.
+    RoleAssignment.query.filter_by(organization_id=org.id).delete(synchronize_session=False)
+    Invitation.query.filter_by(organization_id=org.id).update(
+        {"organization_id": None}, synchronize_session=False)
+
+    db.session.delete(org)  # Einheiten/Stellen via cascade "delete-orphan"
+    db.session.commit()
+    flash(f"Organisation «{name}» wurde gelöscht.", "success")
+    return redirect(url_for("organization.organization"))
 
 
 # ── Organisationseinheit ───────────────────────────────────────────────────
@@ -188,15 +223,47 @@ def person_edit(person_id=None):
         abort(404)
 
     if request.method == "POST":
-        person.name = (request.form.get("name") or "").strip()
-        person.organization_id = request.form.get("organization_id", type=int) or None
-        person.annual_salary = request.form.get("annual_salary", type=float) or 0
-        person.fte = request.form.get("fte", type=float) or 0
-        person.active = bool(request.form.get("active"))
-        person.roles = Role.query.filter(Role.id.in_(_ids("role_ids")),
-                                          Role.account_id == _acc()).all() if _ids("role_ids") else []
-        person.functions = Function.query.filter(Function.id.in_(_ids("function_ids")),
-                                                  Function.account_id == _acc()).all() if _ids("function_ids") else []
+        name = (request.form.get("name") or "").strip()
+        org_id = request.form.get("organization_id", type=int) or None
+        salary = request.form.get("annual_salary", type=float) or 0
+        fte = request.form.get("fte", type=float) or 0
+        active = bool(request.form.get("active"))
+        sel_roles = (Role.query.filter(Role.id.in_(_ids("role_ids")),
+                                       Role.account_id == _acc()).all()
+                     if _ids("role_ids") else [])
+        sel_functions = (Function.query.filter(Function.id.in_(_ids("function_ids")),
+                                               Function.account_id == _acc()).all()
+                         if _ids("function_ids") else [])
+
+        # Validierung (B-03 FTE ≤ 1.0, B-04 keine Negativwerte)
+        errors = []
+        if fte < 0 or fte > 1:
+            errors.append("Die Anstellung (FTE) muss zwischen 0.0 und 1.0 (0–100 %) liegen.")
+        if salary < 0:
+            errors.append("Das Jahresgehalt darf nicht negativ sein.")
+
+        if errors:
+            for e in errors:
+                flash(e, "error")
+            organizations = Organization.query.filter_by(account_id=_acc()).order_by(Organization.name).all()
+            roles = Role.query.filter_by(account_id=_acc()).order_by(Role.name).all()
+            functions = Function.query.filter_by(account_id=_acc()).order_by(Function.name).all()
+            # transientes Objekt mit den Eingaben, damit das Formular sie behaelt
+            form_person = Person(name=name, organization_id=org_id,
+                                 annual_salary=salary, fte=fte, active=active)
+            form_person.id = person.id
+            form_person.roles = sel_roles
+            form_person.functions = sel_functions
+            return render_template("person_edit.html", person=form_person,
+                                   organizations=organizations, roles=roles, functions=functions)
+
+        person.name = name
+        person.organization_id = org_id
+        person.annual_salary = salary
+        person.fte = fte
+        person.active = active
+        person.roles = sel_roles
+        person.functions = sel_functions
         if person.id is None:
             person.account_id = _acc()
             db.session.add(person)

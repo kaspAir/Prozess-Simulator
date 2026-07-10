@@ -13,12 +13,12 @@
 <section>
     <div class="section-title">
         <h2>Prozess</h2>
-        <a class="button" href="{{ url_for('activity_edit') }}" target="_blank">Aktivität hinzufügen</a>
+        <a class="button" href="{{ url_for('activity_edit') }}">Aktivität hinzufügen</a>
     </div>
 
     <div class="process">
         {% for row in rows %}
-            <a class="step" href="{{ url_for('activity_edit', activity_id=row.activity.id) }}" target="_blank">
+            <a class="step" href="{{ url_for('activity_edit', activity_id=row.activity.id) }}">
                 <span class="step-number">{{ loop.index }}</span>
                 <h3>{{ row.activity.name }}</h3>
                 <p>{{ row.activity.effort_minutes }} Minuten</p>
