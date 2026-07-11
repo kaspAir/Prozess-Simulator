@@ -14,6 +14,7 @@ Umsystemen (z. B. Organigramm-/Prozess-Import).
 CLASSIFICATION = [
     ("test_teststufe",  "Fachliche Testfälle (TC-Katalog, ab test)"),
     ("test_functional", "Fachliche Testfälle"),
+    ("test_bpmn",       "Fachliche Testfälle"),
     ("test_domain",     "Fachliche Testfälle"),
     ("test_auth",       "Komponententest"),
     ("test_smoke",      "Smoke / Komponententest"),

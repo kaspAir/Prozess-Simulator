@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/bpmn/assets/diagram-js.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/bpmn/assets/bpmn-js.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/bpmn/assets/bpmn-font/css/bpmn.css') }}">
+<style>
+  .bpmn-toolbar { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-bottom: .6rem; }
+  .bpmn-toolbar .spacer { flex: 1; }
+  #bpmn-status { font-size: .85rem; color: var(--muted); }
+  #bpmn-canvas {
+    height: 72vh;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #ffffff;   /* bpmn-js zeichnet auf hellem Grund */
+  }
+  .bjs-powered-by { opacity: .4; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section>
+  <div class="section-title">
+    <h2>BPMN-Modell – {{ process.name }}</h2>
+  </div>
+
+  <div class="bpmn-toolbar">
+    <button type="button" class="button" id="bpmn-save">Speichern</button>
+    <button type="button" class="button" id="bpmn-download">Als .bpmn herunterladen</button>
+    <a class="button" href="{{ url_for('process.process_graph', process_id=process.id) }}">Zurück zum Prozess</a>
+    <span class="spacer"></span>
+    <span id="bpmn-status"></span>
+  </div>
+
+  <p class="small">
+    Vollständiger BPMN-2.0-Editor: Pools &amp; Swimlanes, alle Gateways (inkl. paralleles
+    «AND»/+), Ereignisse sowie Sequenz- und Nachrichtenflüsse über die Palette links und
+    das Kontextmenü an jedem Element. Änderungen mit «Speichern» sichern.
+  </p>
+
+  <div id="bpmn-canvas"></div>
+</section>
+
+<script src="{{ url_for('static', filename='vendor/bpmn/bpmn-modeler.production.min.js') }}"></script>
+<script>
+(function () {
+  const getUrl  = "{{ url_for('process.api_bpmn_get', process_id=process.id) }}";
+  const saveUrl = "{{ url_for('process.api_bpmn_save', process_id=process.id) }}";
+  const status  = document.getElementById("bpmn-status");
+
+  const modeler = new BpmnJS({ container: "#bpmn-canvas" });
+
+  async function load() {
+    try {
+      const xml = await (await fetch(getUrl)).text();
+      await modeler.importXML(xml);
+      // Zoom kann scheitern, wenn der Container noch keine Grösse hat -> tolerieren
+      try { modeler.get("canvas").zoom("fit-viewport"); } catch (e) { /* egal */ }
+    } catch (err) {
+      console.error(err);
+      status.textContent = "BPMN konnte nicht geladen werden.";
+    }
+  }
+
+  async function currentXml() {
+    const { xml } = await modeler.saveXML({ format: true });
+    return xml;
+  }
+
+  async function save() {
+    status.textContent = "Speichere …";
+    try {
+      const xml = await currentXml();
+      const resp = await fetch(saveUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ xml }),
+      });
+      const data = await resp.json();
+      status.textContent = data.ok ? "Gespeichert ✓" : ("Fehler: " + (data.error || ""));
+    } catch (err) {
+      console.error(err);
+      status.textContent = "Speichern fehlgeschlagen.";
+    }
+  }
+
+  async function download() {
+    const xml = await currentXml();
+    const blob = new Blob([xml], { type: "application/xml" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = {{ process.name|tojson }} + ".bpmn";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  }
+
+  document.getElementById("bpmn-save").addEventListener("click", save);
+  document.getElementById("bpmn-download").addEventListener("click", download);
+  load();
+})();
+</script>
+{% endblock %}

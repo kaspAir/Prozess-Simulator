@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='themes.css') }}">
     <link rel="icon" href="{{ url_for('static', filename='img/DiTi_Logo.jpg') }}">
+    {% block head %}{% endblock %}
 </head>
 <body>
 <header class="app-header">

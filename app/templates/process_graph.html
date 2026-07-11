@@ -9,6 +9,7 @@
             <a class="button" href="{{ url_for('process.edge_edit', process_id=process.id) }}">Flow per Formular</a>
             <a class="button" href="{{ url_for('process.process_edit', parent_id=process.id) }}">Subprozess erstellen</a>
             <a class="button" href="{{ url_for('process.process_edit', process_id=process.id) }}">Prozess bearbeiten</a>
+            <a class="button" href="{{ url_for('process.bpmn_editor', process_id=process.id) }}">BPMN-Modell</a>
             {% if process.parent %}
                 <a class="button" href="{{ url_for('process.process_graph', process_id=process.parent.id) }}">Zurück</a>
             {% endif %}

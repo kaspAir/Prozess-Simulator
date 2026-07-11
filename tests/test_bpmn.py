@@ -1,0 +1,60 @@
+"""BPMN-Phase-1: Editor-Seite + Load/Save-API (bpmn-js speichert BPMN-2.0-XML je Prozess)."""
+from app.auth.permissions import TEMPLATE_ROLES, ACCOUNT_ADMIN_ROLE, P_DASHBOARD_VIEW
+from tests.conftest import make_account_with_role, login
+
+SAMPLE_BPMN = (
+    '<?xml version="1.0" encoding="UTF-8"?>'
+    '<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" '
+    'id="Definitions_X" targetNamespace="http://bpmn.io/schema/bpmn">'
+    '<bpmn:process id="Process_X" isExecutable="false">'
+    '<bpmn:startEvent id="StartEvent_MARKER"/>'
+    '<bpmn:parallelGateway id="Gateway_AND"/>'
+    '</bpmn:process></bpmn:definitions>'
+)
+
+
+def _admin_with_process(app, client):
+    make_account_with_role(app, ACCOUNT_ADMIN_ROLE, TEMPLATE_ROLES[ACCOUNT_ADMIN_ROLE],
+                           email="bpmn-admin@test.ch")
+    login(client, "bpmn-admin@test.ch")
+    client.post("/processes/new", data={"name": "BPMN Prozess"}, follow_redirects=True)
+    with app.app_context():
+        from app.models import Process
+        return Process.query.filter_by(name="BPMN Prozess").first().id
+
+
+def test_bpmn_editor_page_ok(app, client):
+    pid = _admin_with_process(app, client)
+    resp = client.get(f"/process/{pid}/bpmn")
+    assert resp.status_code == 200
+    assert "bpmn-modeler.production.min.js" in resp.get_data(as_text=True)
+
+
+def test_bpmn_default_diagram_returned(app, client):
+    pid = _admin_with_process(app, client)
+    resp = client.get(f"/api/process/{pid}/bpmn")
+    assert resp.status_code == 200
+    assert "bpmn:definitions" in resp.get_data(as_text=True)
+
+
+def test_bpmn_save_and_reload_roundtrip(app, client):
+    pid = _admin_with_process(app, client)
+    r = client.post(f"/api/process/{pid}/bpmn", json={"xml": SAMPLE_BPMN})
+    assert r.get_json()["ok"] is True
+    reloaded = client.get(f"/api/process/{pid}/bpmn").get_data(as_text=True)
+    assert "StartEvent_MARKER" in reloaded
+    assert "parallelGateway" in reloaded   # AND-Gateway wurde persistiert
+
+
+def test_bpmn_save_rejects_non_bpmn(app, client):
+    pid = _admin_with_process(app, client)
+    r = client.post(f"/api/process/{pid}/bpmn", json={"xml": "kein xml"})
+    assert r.status_code == 400
+    assert r.get_json()["ok"] is False
+
+
+def test_bpmn_save_requires_manage_permission(app, client):
+    make_account_with_role(app, "Viewer", {P_DASHBOARD_VIEW}, email="bpmn-viewer@test.ch")
+    login(client, "bpmn-viewer@test.ch")
+    # Viewer darf nicht speichern (POST => Prozess-Verwaltungsrecht nötig)
+    assert client.post("/api/process/1/bpmn", json={"xml": SAMPLE_BPMN}).status_code == 403

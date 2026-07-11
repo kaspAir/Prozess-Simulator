@@ -42,11 +42,24 @@ def ensure_account_columns():
     db.session.commit()
 
 
+def ensure_process_bpmn_column():
+    """Ergaenzt die bpmn_xml-Spalte in processes (datenerhaltend)."""
+    insp = inspect(db.engine)
+    if "processes" not in set(insp.get_table_names()):
+        return
+    cols = [c["name"] for c in insp.get_columns("processes")]
+    if "bpmn_xml" not in cols:
+        db.session.execute(text("ALTER TABLE processes ADD COLUMN bpmn_xml TEXT"))
+        print("  + Spalte bpmn_xml zu processes ergaenzt")
+        db.session.commit()
+
+
 def run():
     app = create_app()
     with app.app_context():
         db.create_all()
         ensure_account_columns()
+        ensure_process_bpmn_column()
 
         # 1) Bootstrap-Account
         account = Account.query.first()

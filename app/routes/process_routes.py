@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, jsonify, abort
+from flask import Blueprint, render_template, request, redirect, url_for, jsonify, abort, Response
 from flask_login import current_user
 
 from app.models import db, Role, Function, Process, Node, Edge, OrgUnit
@@ -33,6 +33,49 @@ def _guard():
         need = P_DASHBOARD_VIEW
     if not user_has_permission(current_user, need):
         abort(403)
+
+
+# Leeres BPMN-2.0-Startdiagramm (nur ein Startereignis) für neue Prozesse.
+DEFAULT_BPMN = """<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" id="Definitions_{pid}" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_{pid}" isExecutable="false">
+    <bpmn:startEvent id="StartEvent_1" name="Start"/>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_{pid}">
+      <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_1">
+        <dc:Bounds x="180" y="160" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>"""
+
+
+@process_bp.route("/process/<int:process_id>/bpmn")
+def bpmn_editor(process_id):
+    """Vollständiger BPMN-Modeler (bpmn-js) für einen Prozess."""
+    process = Process.query.get_or_404(process_id)
+    return render_template("bpmn_editor.html", process=process)
+
+
+@process_bp.route("/api/process/<int:process_id>/bpmn", methods=["GET"])
+def api_bpmn_get(process_id):
+    process = Process.query.get_or_404(process_id)
+    xml = process.bpmn_xml or DEFAULT_BPMN.format(pid=process.id)
+    return Response(xml, mimetype="application/xml")
+
+
+@process_bp.route("/api/process/<int:process_id>/bpmn", methods=["POST"])
+def api_bpmn_save(process_id):
+    process = Process.query.get_or_404(process_id)
+    data = request.get_json(force=True) or {}
+    xml = (data.get("xml") or "").strip()
+    if not xml.startswith("<?xml") and "<bpmn" not in xml:
+        return jsonify({"ok": False, "error": "Kein gültiges BPMN-XML."}), 400
+    process.bpmn_xml = xml
+    db.session.add(process)
+    db.session.commit()
+    return jsonify({"ok": True})
 
 
 @process_bp.route("/process/<int:process_id>")

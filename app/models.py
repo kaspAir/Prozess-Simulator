@@ -74,6 +74,10 @@ class Process(db.Model):
     x = db.Column(db.Float, nullable=False, default=80)
     y = db.Column(db.Float, nullable=False, default=160)
 
+    # Vollständiges BPMN-2.0-Modell (bpmn-js) – koexistiert mit dem vereinfachten
+    # Node/Edge-Modell; die Simulation liest es erst in Phase 2 (Mapping).
+    bpmn_xml = db.Column(db.Text, nullable=True)
+
     parent = db.relationship("Process", remote_side=[id], backref="subprocesses")
     nodes = db.relationship("Node", back_populates="process", foreign_keys="Node.process_id")
     owner_org_unit_id = db.Column(db.Integer, db.ForeignKey("org_units.id"), nullable=True)
