@@ -53,6 +53,24 @@ def test_bpmn_save_rejects_non_bpmn(app, client):
     assert r.get_json()["ok"] is False
 
 
+def test_bpmn_xor_probability_persists(app, client):
+    """XOR-Pfad-Wahrscheinlichkeit (pros:probability) bleibt im gespeicherten BPMN erhalten."""
+    pid = _admin_with_process(app, client)
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" '
+        'xmlns:pros="http://ditwi.ch/bpmn/pros" id="Definitions_P" '
+        'targetNamespace="http://bpmn.io/schema/bpmn">'
+        '<bpmn:process id="Process_P" isExecutable="false">'
+        '<bpmn:exclusiveGateway id="GW"/>'
+        '<bpmn:sequenceFlow id="f1" sourceRef="GW" targetRef="T1" pros:probability="60"/>'
+        '</bpmn:process></bpmn:definitions>'
+    )
+    assert client.post(f"/api/process/{pid}/bpmn", json={"xml": xml}).get_json()["ok"] is True
+    reloaded = client.get(f"/api/process/{pid}/bpmn").get_data(as_text=True)
+    assert 'pros:probability="60"' in reloaded
+
+
 def test_bpmn_save_requires_manage_permission(app, client):
     make_account_with_role(app, "Viewer", {P_DASHBOARD_VIEW}, email="bpmn-viewer@test.ch")
     login(client, "bpmn-viewer@test.ch")

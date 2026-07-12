@@ -8,6 +8,7 @@
   .bpmn-toolbar { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-bottom: .6rem; }
   .bpmn-toolbar .spacer { flex: 1; }
   #bpmn-status { font-size: .85rem; color: var(--muted); }
+  #bpmn-wrap { position: relative; }
   #bpmn-canvas {
     height: 72vh;
     border: 1px solid var(--border);
@@ -15,6 +16,15 @@
     background: #ffffff;   /* bpmn-js zeichnet auf hellem Grund */
   }
   .bjs-powered-by { opacity: .4; }
+  .prob-box {
+    position: absolute; top: 12px; right: 12px; z-index: 10;
+    width: 220px; background: var(--surface); color: var(--ink);
+    border: 1px solid var(--border); border-radius: 10px; padding: .7rem .8rem;
+    box-shadow: 0 6px 18px rgba(24,35,63,.15);
+  }
+  .prob-box h4 { margin: 0 0 .35rem 0; font-size: .95rem; }
+  .prob-box input { width: 100%; }
+  .prob-box .small { margin-top: .35rem; }
 </style>
 {% endblock %}
 
@@ -35,10 +45,20 @@
   <p class="small">
     Vollständiger BPMN-2.0-Editor: Pools &amp; Swimlanes, alle Gateways (inkl. paralleles
     «AND»/+), Ereignisse sowie Sequenz- und Nachrichtenflüsse über die Palette links und
-    das Kontextmenü an jedem Element. Änderungen mit «Speichern» sichern.
+    das Kontextmenü an jedem Element. Für die Simulation: einen Pfad <em>aus einem
+    XOR-Gateway</em> anklicken und rechts die Wahrscheinlichkeit erfassen. Mit «Speichern» sichern.
   </p>
 
-  <div id="bpmn-canvas"></div>
+  <div id="bpmn-wrap">
+    <div id="bpmn-canvas"></div>
+    <div class="prob-box" id="prob-box" hidden>
+      <h4>Pfad-Wahrscheinlichkeit</h4>
+      <label>Anteil der Fälle (%)
+        <input id="prob-input" type="number" min="0" max="100" step="1" placeholder="z. B. 60">
+      </label>
+      <div class="small" id="prob-hint"></div>
+    </div>
+  </div>
 </section>
 
 <script src="{{ url_for('static', filename='vendor/bpmn/bpmn-modeler.production.min.js') }}"></script>
@@ -48,7 +68,57 @@
   const saveUrl = "{{ url_for('process.api_bpmn_save', process_id=process.id) }}";
   const status  = document.getElementById("bpmn-status");
 
-  const modeler = new BpmnJS({ container: "#bpmn-canvas" });
+  // Eigene BPMN-Erweiterung: pros:probability am Sequenzfluss (für die Simulation).
+  const prosModdle = {
+    name: "ProS", uri: "http://ditwi.ch/bpmn/pros", prefix: "pros",
+    xml: { tagAlias: "lowerCase" }, associations: [],
+    types: [{
+      name: "SimFlow", extends: ["bpmn:SequenceFlow"],
+      properties: [{ name: "probability", isAttr: true, type: "Integer" }],
+    }],
+  };
+
+  const modeler = new BpmnJS({
+    container: "#bpmn-canvas",
+    moddleExtensions: { pros: prosModdle },
+  });
+
+  // ── Wahrscheinlichkeits-Panel für Pfade aus (nicht-parallelen) Gateways ──
+  const probBox   = document.getElementById("prob-box");
+  const probInput = document.getElementById("prob-input");
+  const probHint  = document.getElementById("prob-hint");
+  let currentFlow = null;
+
+  function isGatewayFlow(el) {
+    if (!el || el.type !== "bpmn:SequenceFlow" || !el.source) return false;
+    const t = el.source.type || "";
+    // XOR/inklusiv/komplex/ereignisbasiert -> Wahrscheinlichkeit sinnvoll; parallel (AND) nicht.
+    return /Gateway/.test(t) && t !== "bpmn:ParallelGateway";
+  }
+
+  modeler.on("selection.changed", (e) => {
+    const sel = e.newSelection || [];
+    if (sel.length === 1 && isGatewayFlow(sel[0])) {
+      currentFlow = sel[0];
+      const bo = currentFlow.businessObject;
+      const val = bo.get ? bo.get("pros:probability") : bo.probability;
+      probInput.value = (val === undefined || val === null) ? "" : val;
+      const target = currentFlow.target && currentFlow.target.businessObject;
+      probHint.textContent = "Ziel: " + ((target && target.name) || (target && target.id) || "—");
+      probBox.hidden = false;
+    } else {
+      currentFlow = null;
+      probBox.hidden = true;
+    }
+  });
+
+  probInput.addEventListener("change", () => {
+    if (!currentFlow) return;
+    const raw = probInput.value.trim();
+    let val = raw === "" ? undefined : Math.round(Number(raw));
+    if (val !== undefined && (Number.isNaN(val) || val < 0 || val > 100)) return;
+    modeler.get("modeling").updateProperties(currentFlow, { "pros:probability": val });
+  });
 
   async function load() {
     try {
