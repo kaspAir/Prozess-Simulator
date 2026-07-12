@@ -18,12 +18,14 @@
   .bjs-powered-by { opacity: .4; }
   .prob-box {
     position: absolute; top: 12px; right: 12px; z-index: 10;
-    width: 220px; background: var(--surface); color: var(--ink);
+    width: 240px; max-height: 72vh; overflow: auto;
+    background: var(--surface); color: var(--ink);
     border: 1px solid var(--border); border-radius: 10px; padding: .7rem .8rem;
     box-shadow: 0 6px 18px rgba(24,35,63,.15);
   }
-  .prob-box h4 { margin: 0 0 .35rem 0; font-size: .95rem; }
-  .prob-box input { width: 100%; }
+  .prob-box h4 { margin: 0 0 .5rem 0; font-size: .95rem; }
+  .prob-row { display: block; margin-bottom: .5rem; font-size: .85rem; font-weight: 600; }
+  .prob-row input { width: 100%; margin-top: .15rem; font-weight: normal; }
   .prob-box .small { margin-top: .35rem; }
 </style>
 {% endblock %}
@@ -45,18 +47,17 @@
   <p class="small">
     Vollständiger BPMN-2.0-Editor: Pools &amp; Swimlanes, alle Gateways (inkl. paralleles
     «AND»/+), Ereignisse sowie Sequenz- und Nachrichtenflüsse über die Palette links und
-    das Kontextmenü an jedem Element. Für die Simulation: einen Pfad <em>aus einem
-    XOR-Gateway</em> anklicken und rechts die Wahrscheinlichkeit erfassen. Mit «Speichern» sichern.
+    das Kontextmenü an jedem Element. Für die Simulation: ein <em>XOR-Gateway</em>
+    (oder einen seiner Pfade) anklicken – rechts erscheinen dann alle Pfade mit
+    einem %-Feld (Summe sollte 100 % ergeben). Mit «Speichern» sichern.
   </p>
 
   <div id="bpmn-wrap">
     <div id="bpmn-canvas"></div>
     <div class="prob-box" id="prob-box" hidden>
-      <h4>Pfad-Wahrscheinlichkeit</h4>
-      <label>Anteil der Fälle (%)
-        <input id="prob-input" type="number" min="0" max="100" step="1" placeholder="z. B. 60">
-      </label>
-      <div class="small" id="prob-hint"></div>
+      <h4 id="prob-title">Pfad-Wahrscheinlichkeiten</h4>
+      <div id="prob-rows"></div>
+      <div class="small" id="prob-sum"></div>
     </div>
   </div>
 </section>
@@ -83,41 +84,72 @@
     moddleExtensions: { pros: prosModdle },
   });
 
-  // ── Wahrscheinlichkeits-Panel für Pfade aus (nicht-parallelen) Gateways ──
+  // ── Wahrscheinlichkeits-Panel: XOR-/nicht-parallele Gateways bzw. deren Pfade ──
   const probBox   = document.getElementById("prob-box");
-  const probInput = document.getElementById("prob-input");
-  const probHint  = document.getElementById("prob-hint");
-  let currentFlow = null;
+  const probRows  = document.getElementById("prob-rows");
+  const probSum   = document.getElementById("prob-sum");
+  const probTitle = document.getElementById("prob-title");
+  const modeling  = modeler.get("modeling");
 
-  function isGatewayFlow(el) {
-    if (!el || el.type !== "bpmn:SequenceFlow" || !el.source) return false;
-    const t = el.source.type || "";
+  const isSeqFlow = (el) => el && el.type === "bpmn:SequenceFlow";
+  function isProbGateway(el) {
+    const t = (el && el.type) || "";
     // XOR/inklusiv/komplex/ereignisbasiert -> Wahrscheinlichkeit sinnvoll; parallel (AND) nicht.
     return /Gateway/.test(t) && t !== "bpmn:ParallelGateway";
+  }
+  const isGatewayFlow = (el) => isSeqFlow(el) && el.source && isProbGateway(el.source);
+
+  function targetLabel(flow) {
+    const t = flow.target && flow.target.businessObject;
+    return (t && t.name) || (t && t.id) || "Ziel";
+  }
+  function currentProb(flow) {
+    const bo = flow.businessObject;
+    const v = bo.get ? bo.get("pros:probability") : bo.probability;
+    return (v === undefined || v === null) ? "" : v;
+  }
+  function updateSum(flows) {
+    if (flows.length < 2) { probSum.textContent = ""; return; }
+    let sum = 0, any = false;
+    flows.forEach((f) => { const v = currentProb(f); if (v !== "") { sum += Number(v); any = true; } });
+    probSum.textContent = "Summe: " + (any ? sum : 0) + " %" + (any && sum === 100 ? " ✓" : " (soll 100 %)");
+  }
+  function renderPanel(flows, title) {
+    probTitle.textContent = title;
+    probRows.innerHTML = "";
+    flows.forEach((flow) => {
+      const row = document.createElement("label");
+      row.className = "prob-row";
+      row.appendChild(document.createTextNode(targetLabel(flow) + " (%)"));
+      const inp = document.createElement("input");
+      inp.type = "number"; inp.min = "0"; inp.max = "100"; inp.step = "1";
+      inp.value = currentProb(flow);
+      inp.addEventListener("change", () => {
+        const raw = inp.value.trim();
+        const val = raw === "" ? undefined : Math.round(Number(raw));
+        if (val !== undefined && (Number.isNaN(val) || val < 0 || val > 100)) return;
+        modeling.updateProperties(flow, { "pros:probability": val });
+        updateSum(flows);
+      });
+      row.appendChild(inp);
+      probRows.appendChild(row);
+    });
+    updateSum(flows);
+    probBox.hidden = false;
   }
 
   modeler.on("selection.changed", (e) => {
     const sel = e.newSelection || [];
-    if (sel.length === 1 && isGatewayFlow(sel[0])) {
-      currentFlow = sel[0];
-      const bo = currentFlow.businessObject;
-      const val = bo.get ? bo.get("pros:probability") : bo.probability;
-      probInput.value = (val === undefined || val === null) ? "" : val;
-      const target = currentFlow.target && currentFlow.target.businessObject;
-      probHint.textContent = "Ziel: " + ((target && target.name) || (target && target.id) || "—");
-      probBox.hidden = false;
-    } else {
-      currentFlow = null;
-      probBox.hidden = true;
+    if (sel.length === 1) {
+      const el = sel[0];
+      if (isProbGateway(el)) {
+        const flows = (el.outgoing || []).filter(isSeqFlow);
+        if (flows.length) { renderPanel(flows, "Pfad-Wahrscheinlichkeiten"); return; }
+      } else if (isGatewayFlow(el)) {
+        renderPanel([el], "Pfad-Wahrscheinlichkeit"); return;
+      }
     }
-  });
-
-  probInput.addEventListener("change", () => {
-    if (!currentFlow) return;
-    const raw = probInput.value.trim();
-    let val = raw === "" ? undefined : Math.round(Number(raw));
-    if (val !== undefined && (Number.isNaN(val) || val < 0 || val > 100)) return;
-    modeler.get("modeling").updateProperties(currentFlow, { "pros:probability": val });
+    probBox.hidden = true;
   });
 
   async function load() {
