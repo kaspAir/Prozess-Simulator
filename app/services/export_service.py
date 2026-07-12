@@ -3,7 +3,8 @@ Funktionen, Personen und Prozesse (inkl. Nodes/Edges = Parameter).
 
 Deterministisch und ohne KI: liest den aktuellen Datenbestand und serialisiert ihn.
 """
-import xml.etree.ElementTree as ET  # nosec B405 - nur Serialisierung, kein Parsen von fremdem XML
+# Nur Serialisierung (kein Parsen von fremdem XML) -> XXE-Vektor greift hier nicht.
+import xml.etree.ElementTree as ET  # nosec B405
 from datetime import datetime, timezone
 
 from app.models import Organization, OrgUnit, Role, Function, Person, Process

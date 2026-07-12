@@ -83,9 +83,10 @@ pipeline {
                             ruff check app scripts run.py > reports/ruff.txt 2>&1 || rc=1
                             bandit -r app -f txt -o reports/bandit.txt || rc=1
                             pip-audit -r requirements.txt -f markdown -o reports/pip-audit.md || rc=1
-                            echo "----- ruff -----";      cat reports/ruff.txt
-                            echo "----- bandit -----";    cat reports/bandit.txt
-                            echo "----- pip-audit -----"; cat reports/pip-audit.md
+                            # pip-audit schreibt bei 0 Funden keine Datei -> cat tolerant halten
+                            echo "----- ruff -----";      cat reports/ruff.txt 2>/dev/null || true
+                            echo "----- bandit -----";    cat reports/bandit.txt 2>/dev/null || true
+                            echo "----- pip-audit -----"; cat reports/pip-audit.md 2>/dev/null || echo "(keine bekannten Schwachstellen)"
                             echo "Statische Analyse rc=$rc"
                             exit $rc
                         '''
