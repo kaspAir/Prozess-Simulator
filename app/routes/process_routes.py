@@ -59,20 +59,25 @@ def bpmn_editor(process_id):
     acc = current_account_id()
     roles = Role.query.filter_by(account_id=acc).order_by(Role.name).all()
     functions = Function.query.filter_by(account_id=acc).order_by(Function.name).all()
+    orgs = Organization.query.filter_by(account_id=acc).order_by(Organization.name).all()
     all_units = (
         OrgUnit.query.join(Organization)
         .filter(Organization.account_id == acc)
         .order_by(Organization.name, OrgUnit.sort_order, OrgUnit.name).all()
     )
     catalog = {
-        # strukturelle Einheiten (Lane-fähig)
+        # Organisationen (Lane-fähig auf oberster Ebene)
+        "organizations": [{"id": o.id, "name": o.name} for o in orgs],
+        # strukturelle Einheiten (Lane-fähig: Departement/Bereich/Abteilung/Team)
         "units": [
-            {"id": u.id, "name": f"{u.organization.name} · {u.name}", "parent_id": u.parent_id}
+            {"id": u.id, "name": f"{u.organization.name} · {u.name}", "type": u.unit_type,
+             "parent_id": u.parent_id, "organization_id": u.organization_id}
             for u in all_units if u.unit_type != "Stelle"
         ],
-        # Stellen mit ihren Rollen und (falls besetzt) der Person
+        # Stellen mit Org-Zuordnung, ihren Rollen und (falls besetzt) der Person
         "stellen": [
             {"id": u.id, "name": u.name, "unit_id": u.parent_id,
+             "organization_id": u.organization_id,
              "role_ids": [r.id for r in u.roles],
              "person": ({"id": u.person.id, "name": u.person.name} if u.person else None)}
             for u in all_units if u.unit_type == "Stelle"

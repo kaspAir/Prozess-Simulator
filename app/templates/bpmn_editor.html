@@ -76,9 +76,10 @@
     Vollständiger BPMN-2.0-Editor: Pools &amp; Swimlanes, alle Gateways (inkl. paralleles
     «AND»/+), Ereignisse sowie Sequenz- und Nachrichtenflüsse über die Palette links und
     das Kontextmenü an jedem Element. Für die Simulation: einer <em>Lane</em> eine
-    Organisationseinheit zuweisen; eine <em>Aktivität</em> anklicken → «Aktivität
-    bearbeiten …» öffnet ein Fenster mit Aufwand, Rechtsgrundlage und – gefiltert nach
-    der Lane-Einheit – Funktionen, Rollen, Stellen und Mitarbeitenden; ein
+    Organisation oder Einheit (Departement/Bereich/Abteilung/Team) zuweisen; eine
+    <em>Aktivität</em> anklicken → «Aktivität bearbeiten …» öffnet ein Fenster mit
+    Aufwand, Rechtsgrundlage und – gefiltert nach der Lane-Zuordnung –
+    Funktionen, Rollen, Stellen und Mitarbeitenden; ein
     <em>XOR-Gateway</em> → Pfad-Wahrscheinlichkeiten. Mit «Speichern» sichern.
   </p>
 
@@ -177,7 +178,10 @@
       },
       {
         name: "SimLane", extends: ["bpmn:Lane"],
-        properties: [{ name: "orgUnitId", isAttr: true, type: "String" }],
+        properties: [
+          { name: "orgUnitId", isAttr: true, type: "String" },  // legacy (nur Einheit)
+          { name: "orgRef", isAttr: true, type: "String" },      // "org:<id>" | "unit:<id>"
+        ],
       },
     ],
   };
@@ -244,10 +248,28 @@
     probBox.hidden = false;
   }
 
-  // ── Kataloge & Kaskade (Lane-Einheit -> Stellen/Rollen/Funktionen/Personen) ──
+  // ── Kataloge & Kaskade (Lane-Referenz -> Stellen/Rollen/Funktionen/Personen) ──
   const FUNCS = CATALOG.functions, ROLES = CATALOG.roles, UNITS = CATALOG.units, STELLEN = CATALOG.stellen;
+  const ORGS = CATALOG.organizations || [];
   const byId = (arr) => { const m = {}; arr.forEach((x) => (m[String(x.id)] = x)); return m; };
   const stelleById = byId(STELLEN);
+  const orgById = byId(ORGS);
+  const unitById = (id) => UNITS.find((u) => String(u.id) === String(id));
+
+  // Eine Lane trägt eine typisierte Referenz: "org:<id>" (ganze Organisation) oder
+  // "unit:<id>" (Departement/Bereich/Abteilung/Team). Legacy: pros:orgUnitId == Einheit.
+  function laneRef(bo) {
+    const ref = attr(bo, "pros:orgRef");
+    if (ref) return ref;
+    const legacy = attr(bo, "pros:orgUnitId");
+    return legacy ? ("unit:" + legacy) : "";
+  }
+  function refLabel(ref) {
+    if (!ref) return "";
+    const [kind, id] = ref.split(":");
+    if (kind === "org") { const o = orgById[id]; return o ? ("Organisation: " + o.name) : ""; }
+    const u = unitById(id); return u ? (u.type + ": " + u.name) : "";
+  }
 
   const attr = (bo, name) => (bo && bo.get ? bo.get(name) : undefined);
   const toIds = (csv) => String(csv || "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -264,15 +286,23 @@
     }
     return out;
   }
-  function cascade(unitId) {
-    if (!unitId) return { functions: FUNCS, roles: ROLES, stellen: STELLEN };   // Rückfall: voller Katalog
-    const subtree = unitSubtreeIds(unitId);
-    const stellen = STELLEN.filter((s) => subtree.has(String(s.unit_id)));
+  function stellenFromRoles(stellen) {
     const roleIds = new Set(); stellen.forEach((s) => (s.role_ids || []).forEach((r) => roleIds.add(String(r))));
     const roles = ROLES.filter((r) => roleIds.has(String(r.id)));
     const funcIds = new Set(); roles.forEach((r) => (r.function_ids || []).forEach((f) => funcIds.add(String(f))));
     const functions = FUNCS.filter((f) => funcIds.has(String(f.id)));
     return { functions, roles, stellen };
+  }
+  function cascadeForRef(ref) {
+    if (!ref) return { functions: FUNCS, roles: ROLES, stellen: STELLEN };   // Rückfall: voller Katalog
+    const [kind, id] = ref.split(":");
+    if (kind === "org") {
+      // Ganze Organisation: alle Stellen dieser Organisation.
+      return stellenFromRoles(STELLEN.filter((s) => String(s.organization_id) === String(id)));
+    }
+    // Einheit: Stellen im Teilbaum der Einheit.
+    const subtree = unitSubtreeIds(id);
+    return stellenFromRoles(STELLEN.filter((s) => subtree.has(String(s.unit_id))));
   }
 
   function laneOf(el) {
@@ -282,20 +312,47 @@
     for (const ln of lanes) { if (((ln.businessObject.flowNodeRef) || []).indexOf(bo) >= 0) return ln; }
     return null;
   }
-  const unitById = (id) => UNITS.find((u) => String(u.id) === String(id));
 
-  // ── Lane-Panel: Organisationseinheit der Lane ──
+  // ── Lane-Panel: Organisation / Einheit der Lane ──
   const laneBox = document.getElementById("lane-box");
   const laneUnitSel = document.getElementById("lane-unit");
   let currentLane = null;
-  laneUnitSel.innerHTML = '<option value="">— keine —</option>';
-  UNITS.forEach((u) => { const o = document.createElement("option"); o.value = String(u.id); o.textContent = u.name; laneUnitSel.appendChild(o); });
+  // Auswahl: „keine", ganze Organisation, oder Einheit gruppiert nach Typ.
+  const UNIT_TYPE_ORDER = ["Departement", "Bereich", "Abteilung", "Team"];
+  (function buildLaneOptions() {
+    laneUnitSel.innerHTML = '<option value="">— keine —</option>';
+    if (ORGS.length) {
+      const g = document.createElement("optgroup"); g.label = "Organisation";
+      ORGS.forEach((o) => {
+        const opt = document.createElement("option");
+        opt.value = "org:" + o.id; opt.textContent = o.name; g.appendChild(opt);
+      });
+      laneUnitSel.appendChild(g);
+    }
+    const byType = {};
+    UNITS.forEach((u) => { (byType[u.type] = byType[u.type] || []).push(u); });
+    const types = [...UNIT_TYPE_ORDER, ...Object.keys(byType).filter((t) => !UNIT_TYPE_ORDER.includes(t))];
+    types.forEach((t) => {
+      const list = byType[t]; if (!list || !list.length) return;
+      const g = document.createElement("optgroup"); g.label = t;
+      list.forEach((u) => {
+        const opt = document.createElement("option");
+        opt.value = "unit:" + u.id; opt.textContent = u.name; g.appendChild(opt);
+      });
+      laneUnitSel.appendChild(g);
+    });
+  })();
   laneUnitSel.addEventListener("change", () => {
-    if (currentLane) modeling.updateProperties(currentLane, { "pros:orgUnitId": laneUnitSel.value || undefined });
+    if (!currentLane) return;
+    // Neue typisierte Referenz setzen, Legacy-Attribut leeren.
+    modeling.updateProperties(currentLane, {
+      "pros:orgRef": laneUnitSel.value || undefined,
+      "pros:orgUnitId": undefined,
+    });
   });
   function showLane(el) {
     currentLane = el;
-    laneUnitSel.value = String(attr(el.businessObject, "pros:orgUnitId") || "");
+    laneUnitSel.value = laneRef(el.businessObject);
     laneBox.hidden = false;
   }
 
@@ -306,8 +363,8 @@
   function showTask(el) {
     currentTask = el;
     const ln = laneOf(el);
-    const unit = ln ? unitById(attr(ln.businessObject, "pros:orgUnitId")) : null;
-    taskBoxSub.textContent = unit ? ("Lane-Einheit: " + unit.name) : "Ohne Lane-Einheit (voller Katalog)";
+    const ref = ln ? laneRef(ln.businessObject) : "";
+    taskBoxSub.textContent = ref ? refLabel(ref) : "Ohne Lane-Zuordnung (voller Katalog)";
     taskBox.hidden = false;
   }
   document.getElementById("task-open").addEventListener("click", () => { if (currentTask) openModal(currentTask); });
@@ -371,16 +428,33 @@
     tmEffort.value = (eff === undefined || eff === null) ? "" : eff;
     tmLegal.value = attr(bo, "pros:legalBasis") || "";
     const ln = laneOf(el);
-    const unitId = ln ? attr(ln.businessObject, "pros:orgUnitId") : null;
-    const unit = unitId ? unitById(unitId) : null;
-    tmLaneHint.textContent = unit
-      ? ("Auswahl gefiltert nach Lane-Einheit: " + unit.name)
-      : "Diese Aktivität ist keiner Lane-Einheit zugeordnet – voller Katalog.";
-    const c = cascade(unitId);
-    renderChecks(tmFunctions, c.functions, toIds(attr(bo, "pros:functionIds")));
-    renderChecks(tmRoles, c.roles, toIds(attr(bo, "pros:roleIds")));
-    renderChecks(tmStellen, c.stellen, toIds(attr(bo, "pros:positionIds")), () => refreshPersons());
-    refreshPersons(toIds(attr(bo, "pros:personIds")));
+    const ref = ln ? laneRef(ln.businessObject) : "";
+    const c = cascadeForRef(ref);
+
+    // Bisher erfasste Auswahl der Aktivität …
+    let fIds = toIds(attr(bo, "pros:functionIds"));
+    let rIds = toIds(attr(bo, "pros:roleIds"));
+    let sIds = toIds(attr(bo, "pros:positionIds"));
+    let pIds = toIds(attr(bo, "pros:personIds"));
+    const hadSelection = fIds.length || rIds.length || sIds.length || pIds.length;
+    // … sonst: sinnvoller Vorschlag = die ganze Kaskade der Lane vorauswählen.
+    const suggested = !hadSelection && !!ref;
+    if (suggested) {
+      fIds = c.functions.map((x) => String(x.id));
+      rIds = c.roles.map((x) => String(x.id));
+      sIds = c.stellen.map((x) => String(x.id));
+      pIds = personsForStellen(sIds).map((x) => String(x.id));
+    }
+    tmLaneHint.textContent = !ref
+      ? "Diese Aktivität ist keiner Lane zugeordnet – voller Katalog."
+      : (suggested
+          ? ("Vorschlag aus Lane (" + refLabel(ref) + ") – bitte prüfen/anpassen.")
+          : ("Auswahl gefiltert nach Lane: " + refLabel(ref)));
+
+    renderChecks(tmFunctions, c.functions, fIds);
+    renderChecks(tmRoles, c.roles, rIds);
+    renderChecks(tmStellen, c.stellen, sIds, () => refreshPersons());
+    refreshPersons(pIds);
     modal.hidden = false;
   }
   function closeModal() { modal.hidden = true; modalTask = null; }
