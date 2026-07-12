@@ -11,16 +11,27 @@
     Import ergänzt (also ggf. vorher doppelte Organisationen entfernen).
   </p>
 
-  <form method="post" enctype="multipart/form-data">
-    <label>Modell-Datei (.json)
-      <input type="file" name="file" accept="application/json,.json">
+  <form method="post">
+    <label>Modell-Datei (.json) auswählen
+      <input type="file" id="import-file" accept="application/json,.json">
     </label>
 
-    <label>… oder JSON hier einfügen
-      <textarea name="json" rows="8" placeholder="{ &quot;organizations&quot;: [ … ], … }"></textarea>
+    <label>JSON (wird aus der Datei automatisch befüllt – oder direkt einfügen)
+      <textarea name="json" id="import-json" rows="10" required
+                placeholder="{ &quot;organizations&quot;: [ … ], … }"></textarea>
     </label>
 
     <button type="submit">Importieren</button>
   </form>
 </div>
+
+<script>
+  document.getElementById("import-file").addEventListener("change", function (e) {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = function () { document.getElementById("import-json").value = r.result; };
+    r.readAsText(f);
+  });
+</script>
 {% endblock %}

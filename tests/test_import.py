@@ -1,4 +1,22 @@
 """Import eines exportierten Modells in einen anderen Account (Roundtrip)."""
+import json
+
+from app.auth.permissions import TEMPLATE_ROLES, ACCOUNT_ADMIN_ROLE
+from tests.conftest import make_account_with_role, login
+
+
+def test_import_route_urlencoded(app, client):
+    """Import läuft über ein normales Formularfeld (urlencoded) – proxy-tauglich."""
+    make_account_with_role(app, ACCOUNT_ADMIN_ROLE, TEMPLATE_ROLES[ACCOUNT_ADMIN_ROLE],
+                           email="imp@test.ch")
+    login(client, "imp@test.ch")
+    data = {"organizations": [{"id": 1, "name": "Importierte Org", "description": None, "units": []}],
+            "roles": [], "functions": [], "persons": []}
+    r = client.post("/organization/import", data={"json": json.dumps(data)}, follow_redirects=True)
+    assert r.status_code == 200
+    with app.app_context():
+        from app.models import Organization
+        assert Organization.query.filter_by(name="Importierte Org").first() is not None
 
 
 def test_export_import_roundtrip(app):

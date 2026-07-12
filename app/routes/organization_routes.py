@@ -116,12 +116,10 @@ def organization_delete(organization_id):
 @organization_bp.route("/import", methods=["GET", "POST"])
 def organization_import():
     if request.method == "POST":
-        raw = ""
-        upload = request.files.get("file")
-        if upload and upload.filename:
-            raw = upload.read().decode("utf-8", "replace")
-        else:
-            raw = request.form.get("json") or ""
+        # WICHTIG: kein multipart/Datei-Upload – der PHP-Reverse-Proxy reicht
+        # multipart-Bodies nicht durch (Worker-Timeout). Die Datei wird im Browser
+        # gelesen und als normales Formularfeld (urlencoded) gesendet.
+        raw = request.form.get("json") or ""
         try:
             data = json.loads(raw)
         except (ValueError, TypeError):
