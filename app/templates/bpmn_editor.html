@@ -324,20 +324,32 @@
   const tmLaneHint = document.getElementById("tm-lane-hint");
   let modalTask = null;
 
+  // Gleiche Namen zu EINEM Eintrag zusammenfassen (data-ids trägt alle zugehörigen IDs)
+  function dedupByName(items) {
+    const map = new Map();
+    items.forEach((it) => {
+      if (!map.has(it.name)) map.set(it.name, { name: it.name, ids: [] });
+      map.get(it.name).ids.push(String(it.id));
+    });
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "de"));
+  }
   function renderChecks(container, items, checkedIds, onChange) {
     container.innerHTML = "";
-    if (!items.length) { container.innerHTML = '<div class="chk-empty">— keine —</div>'; return; }
+    const groups = dedupByName(items);
+    if (!groups.length) { container.innerHTML = '<div class="chk-empty">— keine —</div>'; return; }
     const checked = new Set((checkedIds || []).map(String));
-    items.forEach((it) => {
+    groups.forEach((g) => {
       const lab = document.createElement("label"); lab.className = "chk-item";
-      const cb = document.createElement("input"); cb.type = "checkbox"; cb.value = String(it.id);
-      cb.checked = checked.has(String(it.id));
+      const cb = document.createElement("input"); cb.type = "checkbox";
+      cb.dataset.ids = g.ids.join(",");
+      cb.checked = g.ids.some((id) => checked.has(id));
       if (onChange) cb.addEventListener("change", onChange);
-      lab.appendChild(cb); lab.appendChild(document.createTextNode(it.name));
+      lab.appendChild(cb); lab.appendChild(document.createTextNode(g.name));
       container.appendChild(lab);
     });
   }
-  const checkedVals = (c) => [...c.querySelectorAll("input:checked")].map((x) => x.value);
+  const checkedVals = (c) =>
+    [...c.querySelectorAll("input:checked")].flatMap((x) => x.dataset.ids.split(","));
 
   function personsForStellen(stelleIds) {
     const seen = {}, out = [];

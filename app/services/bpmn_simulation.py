@@ -145,7 +145,7 @@ def analyze_bpmn(process):
             "raw_cost": raw_cost, "expected_effort": exp_effort, "expected_cost": exp_cost,
             "rate_per_min": rate,
             "legal_basis": _pros(el, "legalBasis") or "",
-            "positions": [p.name for p in pos],
+            "positions": sorted({p.name for p in pos}),   # gleiche Namen nur einmal
         })
         tot_e += effort
         exp_e += exp_effort
