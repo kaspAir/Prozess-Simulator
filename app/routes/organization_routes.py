@@ -2,6 +2,7 @@ import json
 
 from flask import (
     Blueprint, render_template, request, abort, redirect, url_for, flash, session,
+    current_app,
 )
 from flask_login import current_user
 
@@ -127,8 +128,20 @@ def organization_import():
             flash("Kein gültiges JSON – bitte die exportierte Modell-Datei verwenden.", "error")
             return redirect(url_for("organization.organization_import"))
 
+        if not isinstance(data, dict):
+            flash("Die Datei enthält kein Modell-Objekt (erwartet wird ein JSON-Objekt "
+                  "mit «organizations», «roles» usw.).", "error")
+            return redirect(url_for("organization.organization_import"))
+
         from app.services.import_service import import_model
-        c = import_model(_acc(), data)
+        try:
+            c = import_model(_acc(), data)
+        except Exception as exc:  # noqa: BLE001 – Ursache sichtbar machen statt 500
+            db.session.rollback()
+            current_app.logger.exception("Organisation-Import fehlgeschlagen")
+            flash(f"Import fehlgeschlagen: {exc}", "error")
+            return redirect(url_for("organization.organization_import"))
+
         flash(f"Import erfolgreich: {c['organizations']} Organisation(en), {c['units']} Einheiten/Stellen, "
               f"{c['roles']} Rollen, {c['functions']} Funktionen, {c['persons']} Personen.", "success")
         return redirect(url_for("organization.organization"))
