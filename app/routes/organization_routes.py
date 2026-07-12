@@ -1,3 +1,5 @@
+import json
+
 from flask import (
     Blueprint, render_template, request, abort, redirect, url_for, flash, session,
 )
@@ -19,8 +21,8 @@ def _guard():
     ep = (request.endpoint or "").split(".")[-1]
     if ep == "person_edit":
         need = P_PERSONS_MANAGE
-    elif ep in ("organization_edit", "organization_delete", "org_unit_edit",
-                "org_unit_delete", "role_edit", "function_edit"):
+    elif ep in ("organization_edit", "organization_delete", "organization_import",
+                "org_unit_edit", "org_unit_delete", "role_edit", "function_edit"):
         need = P_ORGCHART_MANAGE
     else:
         need = P_DASHBOARD_VIEW
@@ -107,6 +109,31 @@ def organization_delete(organization_id):
     db.session.commit()
     flash(f"Organisation «{name}» wurde gelöscht.", "success")
     return redirect(url_for("organization.organization"))
+
+
+# ── Organisation importieren (JSON aus dem Export) ──────────────────────────
+@organization_bp.route("/import", methods=["GET", "POST"])
+def organization_import():
+    if request.method == "POST":
+        raw = ""
+        upload = request.files.get("file")
+        if upload and upload.filename:
+            raw = upload.read().decode("utf-8", "replace")
+        else:
+            raw = request.form.get("json") or ""
+        try:
+            data = json.loads(raw)
+        except (ValueError, TypeError):
+            flash("Kein gültiges JSON – bitte die exportierte Modell-Datei verwenden.", "error")
+            return redirect(url_for("organization.organization_import"))
+
+        from app.services.import_service import import_model
+        c = import_model(_acc(), data)
+        flash(f"Import erfolgreich: {c['organizations']} Organisation(en), {c['units']} Einheiten/Stellen, "
+              f"{c['roles']} Rollen, {c['functions']} Funktionen, {c['persons']} Personen.", "success")
+        return redirect(url_for("organization.organization"))
+
+    return render_template("organization_import.html")
 
 
 # ── Organisationseinheit ───────────────────────────────────────────────────

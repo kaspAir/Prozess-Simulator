@@ -111,6 +111,7 @@
         <div>
             <a class="button" href="{{ url_for('main.export_model_json') }}" title="Modell als JSON herunterladen">Export JSON</a>
             <a class="button" href="{{ url_for('main.export_model_xml') }}" title="Modell als XML herunterladen">Export XML</a>
+            <a class="button" href="{{ url_for('organization.organization_import') }}" title="Modell aus JSON importieren">Importieren</a>
             <a class="button" href="{{ url_for('organization.organization_edit') }}">Organisation hinzufügen</a>
             {% if selected_org %}
                 <a class="button" href="{{ url_for('organization.organization_edit', organization_id=selected_org.id) }}">Organisation bearbeiten</a>
