@@ -27,10 +27,32 @@
   .prob-row { display: block; margin-bottom: .5rem; font-size: .85rem; font-weight: 600; }
   .prob-row input { width: 100%; margin-top: .15rem; font-weight: normal; }
   .prob-box .small { margin-top: .35rem; }
-  #task-box { width: 260px; }
   .ta-field { display: block; margin-bottom: .5rem; font-size: .82rem; font-weight: 600; }
   .ta-field input, .ta-field select { width: 100%; margin-top: .15rem; font-weight: normal; }
-  .ta-field select { min-height: 3.4rem; }
+
+  /* Aktivitäts-Modal (grosses Fenster) */
+  .modal-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(15,23,42,.55);
+    display: flex; align-items: center; justify-content: center; padding: 2vh; }
+  .modal-dialog { background: var(--surface); color: var(--ink); border-radius: 14px;
+    width: min(960px, 96vw); max-height: 92vh; display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  .modal-head { display: flex; align-items: center; justify-content: space-between;
+    padding: .9rem 1.2rem; border-bottom: 1px solid var(--border); }
+  .modal-head h3 { margin: 0; font-size: 1.1rem; }
+  .modal-x { background: transparent; color: var(--muted); border: 0; font-size: 1.5rem;
+    line-height: 1; cursor: pointer; padding: 0 .3rem; }
+  .modal-body { padding: 1rem 1.2rem; overflow: auto; }
+  .modal-foot { padding: .8rem 1.2rem; border-top: 1px solid var(--border); display: flex; gap: .6rem; }
+  .button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .tm-grid { display: grid; grid-template-columns: 1fr 2fr; gap: .8rem; margin-bottom: .5rem; }
+  .tm-cols { display: grid; grid-template-columns: repeat(4, 1fr); gap: .8rem; margin-top: .6rem; }
+  .tm-col h4 { margin: 0 0 .35rem 0; font-size: .9rem; }
+  .chk-list { border: 1px solid var(--border); border-radius: 8px; padding: .4rem .5rem;
+    max-height: 240px; overflow: auto; background: var(--field); }
+  .chk-item { display: flex; align-items: flex-start; gap: .45rem; font-size: .85rem; margin-bottom: .3rem; }
+  .chk-item input { margin-top: .18rem; width: auto; }
+  .chk-empty { color: var(--muted); font-size: .82rem; }
+  @media (max-width: 780px) { .tm-cols { grid-template-columns: 1fr 1fr; } .tm-grid { grid-template-columns: 1fr; } }
 </style>
 {% endblock %}
 
@@ -52,10 +74,11 @@
   <p class="small">
     Vollständiger BPMN-2.0-Editor: Pools &amp; Swimlanes, alle Gateways (inkl. paralleles
     «AND»/+), Ereignisse sowie Sequenz- und Nachrichtenflüsse über die Palette links und
-    das Kontextmenü an jedem Element. Für die Simulation: eine <em>Aktivität</em>
-    anklicken → rechts Aufwand, Rechtsgrundlage, Funktionen, Rollen und Stellen
-    erfassen; ein <em>XOR-Gateway</em> anklicken → Pfad-Wahrscheinlichkeiten
-    (Summe 100 %). Mit «Speichern» sichern.
+    das Kontextmenü an jedem Element. Für die Simulation: einer <em>Lane</em> eine
+    Organisationseinheit zuweisen; eine <em>Aktivität</em> anklicken → «Aktivität
+    bearbeiten …» öffnet ein Fenster mit Aufwand, Rechtsgrundlage und – gefiltert nach
+    der Lane-Einheit – Funktionen, Rollen, Stellen und Mitarbeitenden; ein
+    <em>XOR-Gateway</em> → Pfad-Wahrscheinlichkeiten. Mit «Speichern» sichern.
   </p>
 
   <div id="bpmn-wrap">
@@ -66,24 +89,48 @@
       <div class="small" id="prob-sum"></div>
     </div>
 
+    <div class="prob-box" id="lane-box" hidden>
+      <h4>Lane / Organisationseinheit</h4>
+      <label class="ta-field">Zugeordnete Einheit
+        <select id="lane-unit"></select>
+      </label>
+      <div class="small">Bestimmt, welche Stellen/Rollen/Funktionen für Aktivitäten in dieser Lane wählbar sind.</div>
+    </div>
+
     <div class="prob-box" id="task-box" hidden>
       <h4>Aktivität</h4>
-      <label class="ta-field">Aufwand (Min./Fall)
-        <input id="ta-effort" type="number" min="0" step="0.1" placeholder="z. B. 45">
-      </label>
-      <label class="ta-field">Rechtsgrundlage
-        <input id="ta-legal" type="text" placeholder="z. B. Art. 352 StPO">
-      </label>
-      <label class="ta-field">Benötigte Funktionen
-        <select id="ta-functions" multiple size="3"></select>
-      </label>
-      <label class="ta-field">Ausführende Rollen
-        <select id="ta-roles" multiple size="3"></select>
-      </label>
-      <label class="ta-field">Ausführende Stellen
-        <select id="ta-positions" multiple size="3"></select>
-      </label>
-      <div class="small">Mehrfachauswahl mit Strg/Cmd-Klick.</div>
+      <button type="button" class="button" id="task-open" style="width:100%;">Aktivität bearbeiten …</button>
+      <div class="small" id="task-box-sub" style="margin-top:.45rem;"></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="task-modal" hidden>
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <h3 id="tm-title">Aktivität bearbeiten</h3>
+        <button type="button" class="modal-x" id="tm-close" aria-label="Schliessen">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="tm-grid">
+          <label class="ta-field">Aufwand (Min./Fall)
+            <input id="tm-effort" type="number" min="0" step="0.1" placeholder="z. B. 45">
+          </label>
+          <label class="ta-field">Rechtsgrundlage
+            <input id="tm-legal" type="text" placeholder="z. B. Art. 352 StPO">
+          </label>
+        </div>
+        <div id="tm-lane-hint" class="small"></div>
+        <div class="tm-cols">
+          <div class="tm-col"><h4>Benötigte Funktionen</h4><div id="tm-functions" class="chk-list"></div></div>
+          <div class="tm-col"><h4>Ausführende Rollen</h4><div id="tm-roles" class="chk-list"></div></div>
+          <div class="tm-col"><h4>Ausführende Stellen</h4><div id="tm-stellen" class="chk-list"></div></div>
+          <div class="tm-col"><h4>Mitarbeitende</h4><div id="tm-persons" class="chk-list"></div></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="button" id="tm-apply">Übernehmen</button>
+        <button type="button" class="button ghost" id="tm-cancel">Abbrechen</button>
+      </div>
     </div>
   </div>
 
@@ -124,7 +171,12 @@
           { name: "functionIds", isAttr: true, type: "String" },
           { name: "roleIds", isAttr: true, type: "String" },
           { name: "positionIds", isAttr: true, type: "String" },
+          { name: "personIds", isAttr: true, type: "String" },
         ],
+      },
+      {
+        name: "SimLane", extends: ["bpmn:Lane"],
+        properties: [{ name: "orgUnitId", isAttr: true, type: "String" }],
       },
     ],
   };
@@ -191,65 +243,157 @@
     probBox.hidden = false;
   }
 
-  // ── Aktivitäts-Panel: Aufwand, Rechtsgrundlage, Funktionen, Rollen, Stellen ──
-  const taskBox   = document.getElementById("task-box");
-  const taEffort  = document.getElementById("ta-effort");
-  const taLegal   = document.getElementById("ta-legal");
-  const taFunc    = document.getElementById("ta-functions");
-  const taRoles   = document.getElementById("ta-roles");
-  const taPos     = document.getElementById("ta-positions");
-  let currentTask = null;
+  // ── Kataloge & Kaskade (Lane-Einheit -> Stellen/Rollen/Funktionen/Personen) ──
+  const FUNCS = CATALOG.functions, ROLES = CATALOG.roles, UNITS = CATALOG.units, STELLEN = CATALOG.stellen;
+  const byId = (arr) => { const m = {}; arr.forEach((x) => (m[String(x.id)] = x)); return m; };
+  const stelleById = byId(STELLEN);
 
-  function fillSelect(sel, items) {
-    sel.innerHTML = "";
-    items.forEach((it) => {
-      const o = document.createElement("option");
-      o.value = String(it.id); o.textContent = it.name;
-      sel.appendChild(o);
-    });
-  }
-  fillSelect(taFunc, CATALOG.functions);
-  fillSelect(taRoles, CATALOG.roles);
-  fillSelect(taPos, CATALOG.positions);
-
-  const isTask = (el) => /Task/.test((el && el.type) || "");
   const attr = (bo, name) => (bo && bo.get ? bo.get(name) : undefined);
-  function setMulti(sel, csv) {
-    const ids = String(csv || "").split(",").map((s) => s.trim()).filter(Boolean);
-    [...sel.options].forEach((o) => { o.selected = ids.includes(o.value); });
-  }
-  const csvOf = (sel) => [...sel.selectedOptions].map((o) => o.value).join(",");
+  const toIds = (csv) => String(csv || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const isTask = (el) => /Task/.test((el && el.type) || "");
+  const isLane = (el) => el && el.type === "bpmn:Lane";
 
+  function unitSubtreeIds(unitId) {
+    const children = {};
+    UNITS.forEach((u) => { const k = String(u.parent_id); (children[k] = children[k] || []).push(String(u.id)); });
+    const out = new Set(); const stack = [String(unitId)];
+    while (stack.length) {
+      const id = stack.pop(); if (out.has(id)) continue; out.add(id);
+      (children[id] || []).forEach((c) => stack.push(c));
+    }
+    return out;
+  }
+  function cascade(unitId) {
+    if (!unitId) return { functions: FUNCS, roles: ROLES, stellen: STELLEN };   // Rückfall: voller Katalog
+    const subtree = unitSubtreeIds(unitId);
+    const stellen = STELLEN.filter((s) => subtree.has(String(s.unit_id)));
+    const roleIds = new Set(); stellen.forEach((s) => (s.role_ids || []).forEach((r) => roleIds.add(String(r))));
+    const roles = ROLES.filter((r) => roleIds.has(String(r.id)));
+    const funcIds = new Set(); roles.forEach((r) => (r.function_ids || []).forEach((f) => funcIds.add(String(f))));
+    const functions = FUNCS.filter((f) => funcIds.has(String(f.id)));
+    return { functions, roles, stellen };
+  }
+
+  function laneOf(el) {
+    if (!el) return null;
+    const bo = el.businessObject;
+    const lanes = modeler.get("elementRegistry").filter((e) => e.type === "bpmn:Lane");
+    for (const ln of lanes) { if (((ln.businessObject.flowNodeRef) || []).indexOf(bo) >= 0) return ln; }
+    return null;
+  }
+  const unitById = (id) => UNITS.find((u) => String(u.id) === String(id));
+
+  // ── Lane-Panel: Organisationseinheit der Lane ──
+  const laneBox = document.getElementById("lane-box");
+  const laneUnitSel = document.getElementById("lane-unit");
+  let currentLane = null;
+  laneUnitSel.innerHTML = '<option value="">— keine —</option>';
+  UNITS.forEach((u) => { const o = document.createElement("option"); o.value = String(u.id); o.textContent = u.name; laneUnitSel.appendChild(o); });
+  laneUnitSel.addEventListener("change", () => {
+    if (currentLane) modeling.updateProperties(currentLane, { "pros:orgUnitId": laneUnitSel.value || undefined });
+  });
+  function showLane(el) {
+    currentLane = el;
+    laneUnitSel.value = String(attr(el.businessObject, "pros:orgUnitId") || "");
+    laneBox.hidden = false;
+  }
+
+  // ── Aktivitäts-Launcher (kleines Panel) ──
+  const taskBox = document.getElementById("task-box");
+  const taskBoxSub = document.getElementById("task-box-sub");
+  let currentTask = null;
   function showTask(el) {
     currentTask = el;
-    const bo = el.businessObject;
-    const eff = attr(bo, "pros:effortMinutes");
-    taEffort.value = (eff === undefined || eff === null) ? "" : eff;
-    taLegal.value = attr(bo, "pros:legalBasis") || "";
-    setMulti(taFunc, attr(bo, "pros:functionIds"));
-    setMulti(taRoles, attr(bo, "pros:roleIds"));
-    setMulti(taPos, attr(bo, "pros:positionIds"));
+    const ln = laneOf(el);
+    const unit = ln ? unitById(attr(ln.businessObject, "pros:orgUnitId")) : null;
+    taskBoxSub.textContent = unit ? ("Lane-Einheit: " + unit.name) : "Ohne Lane-Einheit (voller Katalog)";
     taskBox.hidden = false;
   }
+  document.getElementById("task-open").addEventListener("click", () => { if (currentTask) openModal(currentTask); });
 
-  function setAttr(name, value) {
-    if (currentTask) modeling.updateProperties(currentTask, { [name]: value });
+  // ── Aktivitäts-Modal (grosses Fenster mit Checkboxen) ──
+  const modal = document.getElementById("task-modal");
+  const tmTitle = document.getElementById("tm-title");
+  const tmEffort = document.getElementById("tm-effort");
+  const tmLegal = document.getElementById("tm-legal");
+  const tmFunctions = document.getElementById("tm-functions");
+  const tmRoles = document.getElementById("tm-roles");
+  const tmStellen = document.getElementById("tm-stellen");
+  const tmPersons = document.getElementById("tm-persons");
+  const tmLaneHint = document.getElementById("tm-lane-hint");
+  let modalTask = null;
+
+  function renderChecks(container, items, checkedIds, onChange) {
+    container.innerHTML = "";
+    if (!items.length) { container.innerHTML = '<div class="chk-empty">— keine —</div>'; return; }
+    const checked = new Set((checkedIds || []).map(String));
+    items.forEach((it) => {
+      const lab = document.createElement("label"); lab.className = "chk-item";
+      const cb = document.createElement("input"); cb.type = "checkbox"; cb.value = String(it.id);
+      cb.checked = checked.has(String(it.id));
+      if (onChange) cb.addEventListener("change", onChange);
+      lab.appendChild(cb); lab.appendChild(document.createTextNode(it.name));
+      container.appendChild(lab);
+    });
   }
-  taEffort.addEventListener("change", () => {
-    const raw = taEffort.value.trim();
-    const val = raw === "" ? undefined : Math.max(0, Number(raw));
-    if (val !== undefined && Number.isNaN(val)) return;
-    setAttr("pros:effortMinutes", val);
-  });
-  taLegal.addEventListener("change", () => setAttr("pros:legalBasis", taLegal.value.trim() || undefined));
-  taFunc.addEventListener("change", () => setAttr("pros:functionIds", csvOf(taFunc) || undefined));
-  taRoles.addEventListener("change", () => setAttr("pros:roleIds", csvOf(taRoles) || undefined));
-  taPos.addEventListener("change", () => setAttr("pros:positionIds", csvOf(taPos) || undefined));
+  const checkedVals = (c) => [...c.querySelectorAll("input:checked")].map((x) => x.value);
 
-  modeler.on("selection.changed", (e) => {
-    const sel = e.newSelection || [];
-    probBox.hidden = true;
-    taskBox.hidden = true;
+  function personsForStellen(stelleIds) {
+    const seen = {}, out = [];
+    stelleIds.map(String).forEach((sid) => {
+      const s = stelleById[sid];
+      if (s && s.person && !seen[String(s.person.id)]) { seen[String(s.person.id)] = 1; out.push(s.person); }
+    });
+    return out;
+  }
+  function refreshPersons(prevChecked) {
+    renderChecks(tmPersons, personsForStellen(checkedVals(tmStellen)), prevChecked || checkedVals(tmPersons));
+  }
+
+  function openModal(el) {
+    modalTask = el;
+    const bo = el.businessObject;
+    tmTitle.textContent = "Aktivität bearbeiten – " + (bo.name || bo.id);
+    const eff = attr(bo, "pros:effortMinutes");
+    tmEffort.value = (eff === undefined || eff === null) ? "" : eff;
+    tmLegal.value = attr(bo, "pros:legalBasis") || "";
+    const ln = laneOf(el);
+    const unitId = ln ? attr(ln.businessObject, "pros:orgUnitId") : null;
+    const unit = unitId ? unitById(unitId) : null;
+    tmLaneHint.textContent = unit
+      ? ("Auswahl gefiltert nach Lane-Einheit: " + unit.name)
+      : "Diese Aktivität ist keiner Lane-Einheit zugeordnet – voller Katalog.";
+    const c = cascade(unitId);
+    renderChecks(tmFunctions, c.functions, toIds(attr(bo, "pros:functionIds")));
+    renderChecks(tmRoles, c.roles, toIds(attr(bo, "pros:roleIds")));
+    renderChecks(tmStellen, c.stellen, toIds(attr(bo, "pros:positionIds")), () => refreshPersons());
+    refreshPersons(toIds(attr(bo, "pros:personIds")));
+    modal.hidden = false;
+  }
+  function closeModal() { modal.hidden = true; modalTask = null; }
+  function applyModal() {
+    if (!modalTask) return;
+    const raw = tmEffort.value.trim();
+    const eff = raw === "" ? undefined : Math.max(0, Number(raw));
+    modeling.updateProperties(modalTask, {
+      "pros:effortMinutes": (eff !== undefined && !Number.isNaN(eff)) ? eff : undefined,
+      "pros:legalBasis": tmLegal.value.trim() || undefined,
+      "pros:functionIds": checkedVals(tmFunctions).join(",") || undefined,
+      "pros:roleIds": checkedVals(tmRoles).join(",") || undefined,
+      "pros:positionIds": checkedVals(tmStellen).join(",") || undefined,
+      "pros:personIds": checkedVals(tmPersons).join(",") || undefined,
+    });
+    closeModal();
+    status.textContent = "Aktivität aktualisiert ✓";
+  }
+  document.getElementById("tm-apply").addEventListener("click", applyModal);
+  document.getElementById("tm-cancel").addEventListener("click", closeModal);
+  document.getElementById("tm-close").addEventListener("click", closeModal);
+  modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+
+  modeler.on("selection.changed", (ev) => {
+    const sel = ev.newSelection || [];
+    probBox.hidden = true; taskBox.hidden = true; laneBox.hidden = true;
     if (sel.length !== 1) return;
     const el = sel[0];
     if (isProbGateway(el)) {
@@ -257,6 +401,8 @@
       if (flows.length) renderPanel(flows, "Pfad-Wahrscheinlichkeiten");
     } else if (isGatewayFlow(el)) {
       renderPanel([el], "Pfad-Wahrscheinlichkeit");
+    } else if (isLane(el)) {
+      showLane(el);
     } else if (isTask(el)) {
       showTask(el);
     }

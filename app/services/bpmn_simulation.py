@@ -12,7 +12,7 @@ Deterministisch; das (nutzererstellte) BPMN-XML wird XXE-sicher mit defusedxml g
 """
 import defusedxml.ElementTree as DET
 
-from app.models import OrgUnit, Organization
+from app.models import OrgUnit, Organization, Person
 
 BPMN_NS = "http://www.omg.org/spec/BPMN/20100524/MODEL"
 PROS_NS = "http://ditwi.ch/bpmn/pros"
@@ -108,6 +108,19 @@ def analyze_bpmn(process):
             q = q.filter(Organization.account_id == acc_id)
         positions = {p.id: p for p in q.all()}
 
+    # Ausdrücklich gewählte Mitarbeitende (verfeinern die Stellen für die Kosten)
+    person_ids = set()
+    for el in tasks.values():
+        for x in (_pros(el, "personIds") or "").split(","):
+            if x.strip().isdigit():
+                person_ids.add(int(x))
+    persons_by_id = {}
+    if person_ids:
+        pq = Person.query.filter(Person.id.in_(person_ids))
+        if acc_id is not None:
+            pq = pq.filter(Person.account_id == acc_id)
+        persons_by_id = {p.id: p for p in pq.all()}
+
     activities = []
     tot_e = exp_e = tot_c = exp_c = 0.0
     for eid, el in tasks.items():
@@ -116,7 +129,11 @@ def analyze_bpmn(process):
         visit = factors.get(eid, 1.0)
         pids = [int(x) for x in (_pros(el, "positionIds") or "").split(",") if x.strip().isdigit()]
         pos = [positions[i] for i in pids if i in positions]
-        persons = [p.person for p in pos if p.person]
+        # Kostensatz: bevorzugt aus den gewählten Mitarbeitenden, sonst aus den Stellen
+        prsids = [int(x) for x in (_pros(el, "personIds") or "").split(",") if x.strip().isdigit()]
+        persons = [persons_by_id[i] for i in prsids if i in persons_by_id]
+        if not persons:
+            persons = [p.person for p in pos if p.person]
         rate = (sum(_minute_cost(pp) for pp in persons) / len(persons)) if persons else 0.0
 
         raw_cost = effort * rate

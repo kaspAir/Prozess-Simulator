@@ -59,19 +59,27 @@ def bpmn_editor(process_id):
     acc = current_account_id()
     roles = Role.query.filter_by(account_id=acc).order_by(Role.name).all()
     functions = Function.query.filter_by(account_id=acc).order_by(Function.name).all()
-    positions = (
+    all_units = (
         OrgUnit.query.join(Organization)
-        .filter(OrgUnit.unit_type == "Stelle", Organization.account_id == acc)
-        .order_by(Organization.name, OrgUnit.name).all()
+        .filter(Organization.account_id == acc)
+        .order_by(Organization.name, OrgUnit.sort_order, OrgUnit.name).all()
     )
     catalog = {
-        "roles": [{"id": r.id, "name": r.name} for r in roles],
+        # strukturelle Einheiten (Lane-fähig)
+        "units": [
+            {"id": u.id, "name": f"{u.organization.name} · {u.name}", "parent_id": u.parent_id}
+            for u in all_units if u.unit_type != "Stelle"
+        ],
+        # Stellen mit ihren Rollen und (falls besetzt) der Person
+        "stellen": [
+            {"id": u.id, "name": u.name, "unit_id": u.parent_id,
+             "role_ids": [r.id for r in u.roles],
+             "person": ({"id": u.person.id, "name": u.person.name} if u.person else None)}
+            for u in all_units if u.unit_type == "Stelle"
+        ],
+        "roles": [{"id": r.id, "name": r.name,
+                   "function_ids": [f.id for f in r.functions]} for r in roles],
         "functions": [{"id": f.id, "name": f.name} for f in functions],
-        "positions": [{
-            "id": p.id,
-            "name": f"{p.organization.name} – {p.name}"
-                    + (f" ({p.person.name})" if p.person else " (unbesetzt)"),
-        } for p in positions],
     }
     return render_template("bpmn_editor.html", process=process, catalog=catalog)
 
