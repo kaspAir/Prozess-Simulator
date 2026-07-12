@@ -29,3 +29,4 @@ restart() {  # $1=Verzeichnis $2=Port $3=Name
 restart prozess-simulator      8010 prod
 restart prozess-simulator-int  8012 int
 restart prozess-simulator-test 8011 test
+restart prozess-simulator-dev  8013 dev
