@@ -160,6 +160,31 @@
     </div>
 </section>
 
+{% if bpmn_summaries %}
+<section>
+    <div class="section-title"><h2>BPMN – Aufwand &amp; Kosten je Prozess</h2></div>
+    <p class="small">Zusammenfassung aus den BPMN-Modellen: roh (jede Aktivität 1×) und
+        erwartet (mit XOR-Wahrscheinlichkeiten gewichtet).</p>
+    <table>
+        <tr>
+            <th>Prozess</th><th>Aktivitäten</th>
+            <th>Aufwand roh</th><th>Aufwand erwartet</th>
+            <th>Kosten roh</th><th>Kosten erwartet</th>
+        </tr>
+        {% for s in bpmn_summaries %}
+        <tr>
+            <td><a href="{{ url_for('process.bpmn_editor', process_id=s.process.id) }}">{{ s.process.name }}</a></td>
+            <td>{{ s.activity_count }}</td>
+            <td>{{ "%.0f"|format(s.total_effort) }} Min.</td>
+            <td>{{ "%.1f"|format(s.expected_effort) }} Min.</td>
+            <td>CHF {{ "%.2f"|format(s.total_cost) }}</td>
+            <td>CHF {{ "%.2f"|format(s.expected_cost) }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</section>
+{% endif %}
+
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const tabs = document.querySelectorAll(".dashboard-tab");

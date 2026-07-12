@@ -42,6 +42,7 @@
 
   <div class="bpmn-toolbar">
     <button type="button" class="button" id="bpmn-save">Speichern</button>
+    <button type="button" class="button" id="bpmn-analyze">Berechnen</button>
     <button type="button" class="button" id="bpmn-download">Als .bpmn herunterladen</button>
     <a class="button" href="{{ url_for('process.process_graph', process_id=process.id) }}">Zurück zum Prozess</a>
     <span class="spacer"></span>
@@ -84,6 +85,18 @@
       </label>
       <div class="small">Mehrfachauswahl mit Strg/Cmd-Klick.</div>
     </div>
+  </div>
+
+  <div id="bpmn-analysis" hidden style="margin-top: 1.2rem;">
+    <div class="section-title"><h3 style="margin:0;">Berechnung (Aufwand &amp; Kosten)</h3></div>
+    <div id="ana-totals" style="margin:.4rem 0 .8rem 0;"></div>
+    <table id="ana-table">
+      <thead><tr>
+        <th>Aktivität</th><th>Aufwand (Min.)</th><th>Faktor</th>
+        <th>Erw. Aufwand (Min.)</th><th>Kosten (CHF)</th><th>Erw. Kosten (CHF)</th><th>Stellen</th>
+      </tr></thead>
+      <tbody id="ana-body"></tbody>
+    </table>
   </div>
 </section>
 
@@ -295,7 +308,44 @@
     URL.revokeObjectURL(a.href);
   }
 
+  // ── Berechnung: speichern -> Analyse holen -> Tabelle rendern ──
+  const anaUrl = "{{ url_for('process.api_bpmn_analysis', process_id=process.id) }}";
+  const anaBox = document.getElementById("bpmn-analysis");
+  const anaTotals = document.getElementById("ana-totals");
+  const anaBody = document.getElementById("ana-body");
+  const fmt = (n) => (Math.round((n + Number.EPSILON) * 100) / 100).toLocaleString("de-CH");
+
+  async function analyze() {
+    status.textContent = "Berechne …";
+    await save();
+    try {
+      const data = await (await fetch(anaUrl)).json();
+      if (!data.has_model) { status.textContent = "Kein BPMN-Modell zum Berechnen."; return; }
+      anaTotals.innerHTML =
+        "<strong>Prozess-Summe:</strong> Aufwand roh <strong>" + fmt(data.total_effort) +
+        " Min.</strong> · erwartet <strong>" + fmt(data.expected_effort) +
+        " Min.</strong> · Kosten roh <strong>CHF " + fmt(data.total_cost) +
+        "</strong> · erwartet <strong>CHF " + fmt(data.expected_cost) + "</strong>";
+      anaBody.innerHTML = "";
+      data.activities.forEach((a) => {
+        const tr = document.createElement("tr");
+        [a.name, fmt(a.effort), (Math.round(a.visit_factor * 100) / 100),
+         fmt(a.expected_effort), fmt(a.raw_cost), fmt(a.expected_cost),
+         (a.positions || []).join(", ")]
+          .forEach((v) => { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); });
+        anaBody.appendChild(tr);
+      });
+      anaBox.hidden = false;
+      status.textContent = "Berechnet ✓";
+      anaBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } catch (err) {
+      console.error(err);
+      status.textContent = "Berechnung fehlgeschlagen.";
+    }
+  }
+
   document.getElementById("bpmn-save").addEventListener("click", save);
+  document.getElementById("bpmn-analyze").addEventListener("click", analyze);
   document.getElementById("bpmn-download").addEventListener("click", download);
   load();
 })();

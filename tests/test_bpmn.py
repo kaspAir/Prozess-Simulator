@@ -71,6 +71,34 @@ def test_bpmn_xor_probability_persists(app, client):
     assert 'pros:probability="60"' in reloaded
 
 
+TASK_XML = (
+    '<?xml version="1.0" encoding="UTF-8"?>'
+    '<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" '
+    'xmlns:pros="http://ditwi.ch/bpmn/pros" id="D" targetNamespace="x">'
+    '<bpmn:process id="P"><bpmn:startEvent id="S"/>'
+    '<bpmn:task id="A" name="Prüfen" pros:effortMinutes="30"/>'
+    '<bpmn:sequenceFlow id="s1" sourceRef="S" targetRef="A"/>'
+    '</bpmn:process></bpmn:definitions>'
+)
+
+
+def test_bpmn_analysis_api(app, client):
+    pid = _admin_with_process(app, client)
+    client.post(f"/api/process/{pid}/bpmn", json={"xml": TASK_XML})
+    data = client.get(f"/api/process/{pid}/bpmn/analysis").get_json()
+    assert data["has_model"] is True
+    assert abs(data["total_effort"] - 30) < 1e-6
+    assert data["activities"][0]["name"] == "Prüfen"
+
+
+def test_dashboard_shows_bpmn_summary(app, client):
+    pid = _admin_with_process(app, client)
+    client.post(f"/api/process/{pid}/bpmn", json={"xml": TASK_XML})
+    html = client.get("/dashboard").get_data(as_text=True)
+    assert "BPMN – Aufwand" in html
+    assert "BPMN Prozess" in html
+
+
 def test_bpmn_save_requires_manage_permission(app, client):
     make_account_with_role(app, "Viewer", {P_DASHBOARD_VIEW}, email="bpmn-viewer@test.ch")
     login(client, "bpmn-viewer@test.ch")

@@ -96,6 +96,14 @@ def api_bpmn_save(process_id):
     return jsonify({"ok": True})
 
 
+@process_bp.route("/api/process/<int:process_id>/bpmn/analysis", methods=["GET"])
+def api_bpmn_analysis(process_id):
+    """Aufwand/Kosten je Aktivität + Prozess-Summe (roh & erwartet) aus dem BPMN."""
+    process = Process.query.get_or_404(process_id)
+    from app.services.bpmn_simulation import analyze_bpmn
+    return jsonify(analyze_bpmn(process))
+
+
 @process_bp.route("/process/<int:process_id>")
 def process_graph(process_id):
     process = Process.query.get_or_404(process_id)

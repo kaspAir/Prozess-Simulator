@@ -7,6 +7,9 @@ email-validator==2.2.0
 # der 3.9-Server die neueste 3.9-kompatible Version.
 python-dotenv>=1.1.1
 gunicorn>=22.0.0
+# XXE-sicheres Parsen des (nutzererstellten) BPMN-XML
+defusedxml>=0.7.1
+
 # Optionale DB-Treiber (Standard ist SQLite):
 PyMySQL==1.1.1          # MariaDB / MySQL  (mysql+pymysql://…)
 psycopg2-binary==2.9.12  # PostgreSQL      (postgresql+psycopg2://…)

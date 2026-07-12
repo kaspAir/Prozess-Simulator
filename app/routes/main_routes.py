@@ -144,6 +144,19 @@ def dashboard():
         for process in processes
     }
 
+    # BPMN-Kostenübersicht (Aufwand/Kosten je Prozess aus dem BPMN-Modell)
+    from app.services.bpmn_simulation import analyze_bpmn
+    bpmn_summaries = []
+    for process in processes:
+        a = analyze_bpmn(process)
+        if a["has_model"]:
+            bpmn_summaries.append({
+                "process": process,
+                "activity_count": len(a["activities"]),
+                "total_effort": a["total_effort"], "expected_effort": a["expected_effort"],
+                "total_cost": a["total_cost"], "expected_cost": a["expected_cost"],
+            })
+
     return render_template(
         "dashboard.html",
         dashboard_items=dashboard_items,
@@ -152,4 +165,5 @@ def dashboard():
         op_period=op_period,
         op_period_label=op_period_label,
         active_tab=active_tab,
+        bpmn_summaries=bpmn_summaries,
     )
