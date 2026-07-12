@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify, abort, Response
 from flask_login import current_user
 
-from app.models import db, Role, Function, Process, Node, Edge, OrgUnit
+from app.models import db, Role, Function, Process, Node, Edge, OrgUnit, Organization
 from app.auth.permissions import P_DASHBOARD_VIEW, P_PROCESSES_MANAGE, P_SIMULATION_RUN
 from app.auth.service import user_has_permission, current_account_id
 from app.simulation import simulate_end_to_end
@@ -53,9 +53,27 @@ DEFAULT_BPMN = """<?xml version="1.0" encoding="UTF-8"?>
 
 @process_bp.route("/process/<int:process_id>/bpmn")
 def bpmn_editor(process_id):
-    """Vollständiger BPMN-Modeler (bpmn-js) für einen Prozess."""
+    """Vollständiger BPMN-Modeler (bpmn-js) für einen Prozess. Liefert zusätzlich
+    den Katalog (Funktionen/Rollen/Stellen des Accounts) für die Aktivitäts-Attribute."""
     process = Process.query.get_or_404(process_id)
-    return render_template("bpmn_editor.html", process=process)
+    acc = current_account_id()
+    roles = Role.query.filter_by(account_id=acc).order_by(Role.name).all()
+    functions = Function.query.filter_by(account_id=acc).order_by(Function.name).all()
+    positions = (
+        OrgUnit.query.join(Organization)
+        .filter(OrgUnit.unit_type == "Stelle", Organization.account_id == acc)
+        .order_by(Organization.name, OrgUnit.name).all()
+    )
+    catalog = {
+        "roles": [{"id": r.id, "name": r.name} for r in roles],
+        "functions": [{"id": f.id, "name": f.name} for f in functions],
+        "positions": [{
+            "id": p.id,
+            "name": f"{p.organization.name} – {p.name}"
+                    + (f" ({p.person.name})" if p.person else " (unbesetzt)"),
+        } for p in positions],
+    }
+    return render_template("bpmn_editor.html", process=process, catalog=catalog)
 
 
 @process_bp.route("/api/process/<int:process_id>/bpmn", methods=["GET"])

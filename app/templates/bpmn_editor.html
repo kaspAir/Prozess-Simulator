@@ -27,6 +27,10 @@
   .prob-row { display: block; margin-bottom: .5rem; font-size: .85rem; font-weight: 600; }
   .prob-row input { width: 100%; margin-top: .15rem; font-weight: normal; }
   .prob-box .small { margin-top: .35rem; }
+  #task-box { width: 260px; }
+  .ta-field { display: block; margin-bottom: .5rem; font-size: .82rem; font-weight: 600; }
+  .ta-field input, .ta-field select { width: 100%; margin-top: .15rem; font-weight: normal; }
+  .ta-field select { min-height: 3.4rem; }
 </style>
 {% endblock %}
 
@@ -47,9 +51,10 @@
   <p class="small">
     Vollständiger BPMN-2.0-Editor: Pools &amp; Swimlanes, alle Gateways (inkl. paralleles
     «AND»/+), Ereignisse sowie Sequenz- und Nachrichtenflüsse über die Palette links und
-    das Kontextmenü an jedem Element. Für die Simulation: ein <em>XOR-Gateway</em>
-    (oder einen seiner Pfade) anklicken – rechts erscheinen dann alle Pfade mit
-    einem %-Feld (Summe sollte 100 % ergeben). Mit «Speichern» sichern.
+    das Kontextmenü an jedem Element. Für die Simulation: eine <em>Aktivität</em>
+    anklicken → rechts Aufwand, Rechtsgrundlage, Funktionen, Rollen und Stellen
+    erfassen; ein <em>XOR-Gateway</em> anklicken → Pfad-Wahrscheinlichkeiten
+    (Summe 100 %). Mit «Speichern» sichern.
   </p>
 
   <div id="bpmn-wrap">
@@ -58,6 +63,26 @@
       <h4 id="prob-title">Pfad-Wahrscheinlichkeiten</h4>
       <div id="prob-rows"></div>
       <div class="small" id="prob-sum"></div>
+    </div>
+
+    <div class="prob-box" id="task-box" hidden>
+      <h4>Aktivität</h4>
+      <label class="ta-field">Aufwand (Min./Fall)
+        <input id="ta-effort" type="number" min="0" step="0.1" placeholder="z. B. 45">
+      </label>
+      <label class="ta-field">Rechtsgrundlage
+        <input id="ta-legal" type="text" placeholder="z. B. Art. 352 StPO">
+      </label>
+      <label class="ta-field">Benötigte Funktionen
+        <select id="ta-functions" multiple size="3"></select>
+      </label>
+      <label class="ta-field">Ausführende Rollen
+        <select id="ta-roles" multiple size="3"></select>
+      </label>
+      <label class="ta-field">Ausführende Stellen
+        <select id="ta-positions" multiple size="3"></select>
+      </label>
+      <div class="small">Mehrfachauswahl mit Strg/Cmd-Klick.</div>
     </div>
   </div>
 </section>
@@ -73,11 +98,24 @@
   const prosModdle = {
     name: "ProS", uri: "http://ditwi.ch/bpmn/pros", prefix: "pros",
     xml: { tagAlias: "lowerCase" }, associations: [],
-    types: [{
-      name: "SimFlow", extends: ["bpmn:SequenceFlow"],
-      properties: [{ name: "probability", isAttr: true, type: "Integer" }],
-    }],
+    types: [
+      {
+        name: "SimFlow", extends: ["bpmn:SequenceFlow"],
+        properties: [{ name: "probability", isAttr: true, type: "Integer" }],
+      },
+      {
+        name: "SimActivity", extends: ["bpmn:Activity"],
+        properties: [
+          { name: "effortMinutes", isAttr: true, type: "Real" },
+          { name: "legalBasis", isAttr: true, type: "String" },
+          { name: "functionIds", isAttr: true, type: "String" },
+          { name: "roleIds", isAttr: true, type: "String" },
+          { name: "positionIds", isAttr: true, type: "String" },
+        ],
+      },
+    ],
   };
+  const CATALOG = {{ catalog|tojson }};
 
   const modeler = new BpmnJS({
     container: "#bpmn-canvas",
@@ -140,18 +178,75 @@
     probBox.hidden = false;
   }
 
+  // ── Aktivitäts-Panel: Aufwand, Rechtsgrundlage, Funktionen, Rollen, Stellen ──
+  const taskBox   = document.getElementById("task-box");
+  const taEffort  = document.getElementById("ta-effort");
+  const taLegal   = document.getElementById("ta-legal");
+  const taFunc    = document.getElementById("ta-functions");
+  const taRoles   = document.getElementById("ta-roles");
+  const taPos     = document.getElementById("ta-positions");
+  let currentTask = null;
+
+  function fillSelect(sel, items) {
+    sel.innerHTML = "";
+    items.forEach((it) => {
+      const o = document.createElement("option");
+      o.value = String(it.id); o.textContent = it.name;
+      sel.appendChild(o);
+    });
+  }
+  fillSelect(taFunc, CATALOG.functions);
+  fillSelect(taRoles, CATALOG.roles);
+  fillSelect(taPos, CATALOG.positions);
+
+  const isTask = (el) => /Task/.test((el && el.type) || "");
+  const attr = (bo, name) => (bo && bo.get ? bo.get(name) : undefined);
+  function setMulti(sel, csv) {
+    const ids = String(csv || "").split(",").map((s) => s.trim()).filter(Boolean);
+    [...sel.options].forEach((o) => { o.selected = ids.includes(o.value); });
+  }
+  const csvOf = (sel) => [...sel.selectedOptions].map((o) => o.value).join(",");
+
+  function showTask(el) {
+    currentTask = el;
+    const bo = el.businessObject;
+    const eff = attr(bo, "pros:effortMinutes");
+    taEffort.value = (eff === undefined || eff === null) ? "" : eff;
+    taLegal.value = attr(bo, "pros:legalBasis") || "";
+    setMulti(taFunc, attr(bo, "pros:functionIds"));
+    setMulti(taRoles, attr(bo, "pros:roleIds"));
+    setMulti(taPos, attr(bo, "pros:positionIds"));
+    taskBox.hidden = false;
+  }
+
+  function setAttr(name, value) {
+    if (currentTask) modeling.updateProperties(currentTask, { [name]: value });
+  }
+  taEffort.addEventListener("change", () => {
+    const raw = taEffort.value.trim();
+    const val = raw === "" ? undefined : Math.max(0, Number(raw));
+    if (val !== undefined && Number.isNaN(val)) return;
+    setAttr("pros:effortMinutes", val);
+  });
+  taLegal.addEventListener("change", () => setAttr("pros:legalBasis", taLegal.value.trim() || undefined));
+  taFunc.addEventListener("change", () => setAttr("pros:functionIds", csvOf(taFunc) || undefined));
+  taRoles.addEventListener("change", () => setAttr("pros:roleIds", csvOf(taRoles) || undefined));
+  taPos.addEventListener("change", () => setAttr("pros:positionIds", csvOf(taPos) || undefined));
+
   modeler.on("selection.changed", (e) => {
     const sel = e.newSelection || [];
-    if (sel.length === 1) {
-      const el = sel[0];
-      if (isProbGateway(el)) {
-        const flows = (el.outgoing || []).filter(isSeqFlow);
-        if (flows.length) { renderPanel(flows, "Pfad-Wahrscheinlichkeiten"); return; }
-      } else if (isGatewayFlow(el)) {
-        renderPanel([el], "Pfad-Wahrscheinlichkeit"); return;
-      }
-    }
     probBox.hidden = true;
+    taskBox.hidden = true;
+    if (sel.length !== 1) return;
+    const el = sel[0];
+    if (isProbGateway(el)) {
+      const flows = (el.outgoing || []).filter(isSeqFlow);
+      if (flows.length) renderPanel(flows, "Pfad-Wahrscheinlichkeiten");
+    } else if (isGatewayFlow(el)) {
+      renderPanel([el], "Pfad-Wahrscheinlichkeit");
+    } else if (isTask(el)) {
+      showTask(el);
+    }
   });
 
   async function load() {
