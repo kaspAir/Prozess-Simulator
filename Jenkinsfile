@@ -3,7 +3,7 @@
 // Branch-Flow:  dev → test → integration → main
 //
 // Pipeline-Jobs (Job-Name muss den Branch enthalten):
-//   prozess-simulator dev          → nur Tests (kein Deploy)
+//   prozess-simulator dev          → Tests + Deploy dev          (Port 8013, dev.ditwi.ch)
 //   prozess-simulator test         → Tests + Deploy test         (Port 8011, test.ditwi.ch)
 //   prozess-simulator integration  → Tests + Deploy integration  (Port 8012, int.ditwi.ch)
 //   prozess-simulator main         → Tests + Deploy prod          (Port 8010, ditwi.ch)
@@ -13,7 +13,7 @@
 //   - Docker + Docker-Pipeline-Plugin (fuer die Test-Stage im Container)
 //
 // Voraussetzungen Server (siehe deploy/SERVER_SETUP.md):
-//   - App-Verzeichnisse ~/prozess-simulator[-test|-int] mit je .env + data/ + logs/
+//   - App-Verzeichnisse ~/prozess-simulator[-dev|-test|-int] mit je .env + data/ + logs/
 //   - Python 3 vorhanden (venv wird pro App-Verzeichnis automatisch erstellt)
 
 pipeline {
@@ -207,6 +207,43 @@ pipeline {
                         '
                     """
                     sh "scp -o StrictHostKeyChecking=no reports/test-protocol.pdf ${DEPLOY_HOST}:prozess-simulator-test/data/test-protocol.pdf || echo 'kein Protokoll zum Kopieren'"
+                }
+            }
+        }
+
+        stage('Deploy dev') {
+            when { expression { env.JOB_NAME.contains('dev') } }
+            steps {
+                sshagent(credentials: ['hermespia-deploy']) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ${DEPLOY_HOST} '
+                            APP_DIR=\$HOME/prozess-simulator-dev
+                            mkdir -p "\$APP_DIR/data" "\$APP_DIR/logs" \$HOME/tmp
+                            cd "\$APP_DIR"
+                            if [ ! -d .git ]; then git init -q && git remote add origin ${REPO_URL}; fi
+                            git remote set-url origin ${REPO_URL}
+                            git fetch origin
+                            git reset --hard origin/dev
+                            export GIT_COMMIT=\$(git rev-parse --short HEAD)
+                            if [ ! -f .venv/bin/activate ]; then rm -rf .venv; { python3 -m pip install --user -q virtualenv || pip install --user -q virtualenv; }; { python3 -m virtualenv .venv || \$HOME/.local/bin/virtualenv .venv; }; fi
+                            if [ ! -f .venv/bin/activate ]; then echo "FEHLER: venv konnte nicht erstellt werden (.venv/bin/activate fehlt)"; exit 1; fi
+                            . .venv/bin/activate
+                            pip install -r requirements.txt -q
+                            if [ -f .env ]; then set -a; . ./.env; set +a; fi
+                            [ -f data/prozess_simulator.db ] || python init_db.py
+                            python seed_auth.py || { echo "FEHLER: seed_auth fehlgeschlagen"; exit 1; }
+                            PID_FILE=\$HOME/tmp/gunicorn-pros-dev.pid
+                            [ -f "\$PID_FILE" ] && kill \$(cat "\$PID_FILE") 2>/dev/null || true
+                            sleep 1
+                            nohup .venv/bin/gunicorn run:app \\
+                                --bind 127.0.0.1:8013 --workers 1 --timeout 120 \\
+                                --access-logfile logs/access.log \\
+                                --error-logfile logs/error.log > /dev/null 2>&1 &
+                            echo \$! > "\$PID_FILE"
+                            sleep 2 && curl -sf http://127.0.0.1:8013/health > /dev/null && echo "OK: dev Health-Check gruen"
+                        '
+                    """
+                    sh "scp -o StrictHostKeyChecking=no reports/test-protocol.pdf ${DEPLOY_HOST}:prozess-simulator-dev/data/test-protocol.pdf || echo 'kein Protokoll zum Kopieren'"
                 }
             }
         }

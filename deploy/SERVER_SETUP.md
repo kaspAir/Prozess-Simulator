@@ -11,10 +11,15 @@ Reverse-Proxy/HTTPS des Hosting-Panels.
 | `main`       | `~/prozess-simulator`        | 8010  | ditwi.ch        |
 | `integration`| `~/prozess-simulator-int`    | 8012  | int.ditwi.ch    |
 | `test`       | `~/prozess-simulator-test`   | 8011  | test.ditwi.ch   |
-| `dev`        | — (nur Tests in CI)          | —     | —               |
+| `dev`        | `~/prozess-simulator-dev`    | 8013  | dev.ditwi.ch    |
 
-> Die hermespia.ch-Instanz nutzt 8000/8001/8002 — ProS nutzt 8010/8011/8012,
+> Die hermespia.ch-Instanz nutzt 8000/8001/8002 — ProS nutzt 8010/8011/8012/8013,
 > damit sich beide Anwendungen auf demselben Host nicht stören.
+
+> **dev-Umgebung (neu):** dient als Vorschau des dev-Builds vor der Promotion auf
+> test. Einmalig `~/prozess-simulator-dev/.env` + `data/` + `logs/` anlegen (wie bei
+> den anderen Stufen; für dev genügt eine eigene SQLite-DB oder ein eigener MariaDB).
+> dev.ditwi.ch als zusätzliche Site mit PHP-Proxy auf Port 8013.
 
 ## Einmalige Schritte pro Umgebung
 
