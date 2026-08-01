@@ -2,7 +2,7 @@ import os
 import sqlite3
 
 from dotenv import load_dotenv
-from flask import Flask, redirect, url_for, request
+from flask import Flask, redirect, url_for, request, render_template
 from flask_login import current_user
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
@@ -95,5 +95,30 @@ def create_app():
             current_account=current_account(),
             active_organization_id=active_organization_id(),
         )
+
+    # Freundliche 403-Seite statt der nackten Werkzeug-Meldung: Ein angemeldeter
+    # Nutzer, dem (noch) keine Rolle zugewiesen ist, soll verstehen, was fehlt –
+    # und nicht "Forbidden: You don't have the permission…" sehen.
+    @app.errorhandler(403)
+    def forbidden(_e):
+        if not current_user.is_authenticated:
+            return redirect(url_for("auth.login", next=request.path))
+        from app.auth.service import current_account, _membership
+        acc = current_account()
+        no_role = True
+        if acc is not None:
+            m = _membership(current_user, acc.id)
+            no_role = not (m and m.assignments)
+        if no_role:
+            app.logger.warning("403 fuer angemeldeten Nutzer ohne wirksame Rolle: "
+                               "user=%s account=%s path=%s",
+                               getattr(current_user, "email", "?"),
+                               acc.id if acc else None, request.path)
+        return render_template(
+            "errors/403.html",
+            user_name=getattr(current_user, "name", None),
+            account_name=acc.name if acc else None,
+            no_role=no_role,
+        ), 403
 
     return app

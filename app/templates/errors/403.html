@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="form-card" style="max-width:640px;">
+  <h2>Kein Zugriff auf diese Seite</h2>
+  <p>
+    Du bist angemeldet{% if user_name %} als <strong>{{ user_name }}</strong>{% endif %},
+    aber dir ist für {% if account_name %}den Bereich «{{ account_name }}»{% else %}diesen Bereich{% endif %}
+    noch <strong>keine Rolle mit den nötigen Rechten</strong> zugewiesen.
+  </p>
+  {% if no_role %}
+  <p class="small">
+    Deine Anmeldung hat funktioniert – es fehlt nur die Freischaltung. Bitte wende dich
+    an die Administratorin oder den Administrator deines Kontos, damit dir eine Rolle
+    (z. B. «Viewer» oder «Prozess-Editor») zugewiesen wird.
+  </p>
+  {% else %}
+  <p class="small">
+    Für diese konkrete Aktion fehlt dir das nötige Recht. Für den allgemeinen Zugang
+    ist deine Rolle ausreichend – bitte wende dich an deine Administration, wenn du
+    hier mehr Rechte brauchst.
+  </p>
+  {% endif %}
+  <p style="margin-top:1rem;">
+    <a class="button" href="{{ url_for('main.dashboard') }}">Zum Dashboard</a>
+    <a class="button ghost" href="{{ url_for('auth.logout') }}">Abmelden</a>
+  </p>
+</section>
+{% endblock %}
