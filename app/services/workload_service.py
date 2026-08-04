@@ -16,6 +16,12 @@ from app.models import Process, Person, Function, Role, OrgUnit, Organization
 from app.services.bpmn_simulation import analyze_bpmn, ANNUAL_WORKING_MINUTES
 from app.services.node_to_bpmn import effective_bpmn
 
+PRIORITY_LABELS = {1: "Hoch", 2: "Mittel", 3: "Niedrig"}
+
+
+def _status(util):
+    return "ok" if util <= 0.85 else ("eng" if util <= 1.0 else "Engpass")
+
 
 def _covered_functions(person):
     """Funktions-IDs, die eine Person abdeckt – direkt oder über eine ihrer Rollen."""
@@ -41,6 +47,8 @@ def cross_process_workload(account_id, volumes):
     (in Stunden/Jahr) zurück, plus die nicht zugeordnete Belastung."""
     load_min, unassigned_min = {}, 0.0
     needed_fn, needed_role = {}, {}   # person_id -> benötigte Funktions-/Rollen-IDs
+    per_process = {}                  # person_id -> {process_id -> Minuten}
+    proc_meta = {}                    # process_id -> {name, priority}
     for pr in Process.query.filter_by(account_id=account_id).all():
         vol = float(volumes.get(pr.id) or 0)
         if vol <= 0:
@@ -48,6 +56,7 @@ def cross_process_workload(account_id, volumes):
         res = analyze_bpmn(pr)
         if not res["has_model"]:
             continue
+        proc_meta[pr.id] = {"name": pr.name, "priority": (pr.priority or 2)}
         for a in res["activities"]:
             mins = (a["expected_effort"] or 0) * vol
             persons = a.get("persons") or []
@@ -58,6 +67,8 @@ def cross_process_workload(account_id, volumes):
             share = mins / len(persons)
             for p in persons:
                 load_min[p["id"]] = load_min.get(p["id"], 0.0) + share
+                per_process.setdefault(p["id"], {})
+                per_process[p["id"]][pr.id] = per_process[p["id"]].get(pr.id, 0.0) + share
                 needed_fn.setdefault(p["id"], set()).update(a.get("req_function_ids") or [])
                 needed_role.setdefault(p["id"], set()).update(a.get("req_role_ids") or [])
 
@@ -79,10 +90,22 @@ def cross_process_workload(account_id, volumes):
             continue
         cap = capacity_min(p)
         util = (mins / cap) if cap else 0.0
+        # Aufschlüsselung der Last nach Prozess/Priorität – hoch zuerst (schützen),
+        # niedrig zuletzt (eher verschiebbar).
+        by_process = []
+        for proc_id, pm in per_process.get(p.id, {}).items():
+            meta = proc_meta.get(proc_id, {"name": "?", "priority": 2})
+            by_process.append({
+                "process": meta["name"], "priority": meta["priority"],
+                "priority_label": PRIORITY_LABELS.get(meta["priority"], "Mittel"),
+                "load_h": pm / 60.0,
+            })
+        by_process.sort(key=lambda x: (x["priority"], -x["load_h"]))
         rows.append({
             "id": p.id, "name": p.name, "fte": (p.fte if p.fte is not None else 1.0),
             "load_h": mins / 60.0, "capacity_h": cap / 60.0, "util": util,
             "status": "ok" if util <= 0.85 else ("eng" if util <= 1.0 else "Engpass"),
+            "by_process": by_process,
         })
     rows.sort(key=lambda r: r["util"], reverse=True)
 
@@ -121,3 +144,39 @@ def cross_process_workload(account_id, volumes):
             borrow.append({"name": r["name"], "util": r["util"], "candidates": cands[:5]})
 
     return {"persons": rows, "unassigned_h": unassigned_min / 60.0, "borrow": borrow}
+
+
+def process_activity_ampel(account_id, volumes):
+    """Ampel-Sicht fürs Dashboard: je Einstiegsprozess seine Aktivitäten mit
+    rot/gelb/grün. Die Farbe einer Aktivität spiegelt die tatsächliche Überlast der
+    Personen, die sie ausführen (prozessübergreifend gerechnet)."""
+    wl = cross_process_workload(account_id, volumes)
+    putil = {r["id"]: r["util"] for r in wl["persons"]}
+    out = []
+    for pr in entry_processes(account_id):
+        vol = float(volumes.get(pr.id) or 0)
+        if vol <= 0:
+            continue
+        res = analyze_bpmn(pr)
+        if not res["has_model"]:
+            continue
+        acts = []
+        for a in res["activities"]:
+            persons = a.get("persons") or []
+            if not persons:
+                continue
+            util = max(putil.get(p["id"], 0.0) for p in persons)
+            acts.append({
+                "name": a["name"], "effort": a["effort"],
+                "persons": [p["name"] for p in persons],
+                "util": util, "status": _status(util),
+            })
+        acts.sort(key=lambda x: x["util"], reverse=True)
+        engpass = acts[0]["name"] if (acts and acts[0]["status"] == "Engpass") else None
+        out.append({
+            "process": pr.name, "priority": (pr.priority or 2),
+            "priority_label": PRIORITY_LABELS.get(pr.priority or 2, "Mittel"),
+            "activities": acts, "engpass": engpass,
+            "has_unassigned": any((a.get("persons") in (None, [])) for a in res["activities"]),
+        })
+    return out

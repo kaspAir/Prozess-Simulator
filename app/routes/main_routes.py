@@ -105,12 +105,12 @@ def dashboard():
     processes = Process.query.filter_by(account_id=account_id).order_by(Process.id).all()
 
     from app.services.bpmn_simulation import analyze_bpmn
-    from app.services.workload_service import cross_process_workload
+    from app.services.workload_service import process_activity_ampel
 
-    # Strategische Engpass-Sicht: prozessübergreifende Personen-Auslastung aus dem
-    # gespeicherten Mengengerüst (BPMN-Modell). Ohne Mengengerüst leer.
+    # Ampel-Sicht: je Prozess seine Aktivitäten rot/gelb/grün (Farbe = tatsächliche
+    # Personen-Überlast), aus dem gespeicherten Mengengerüst. Ohne Mengengerüst leer.
     volumes = {p.id: p.annual_cases for p in processes if (p.annual_cases or 0) > 0}
-    workload = cross_process_workload(account_id, volumes) if volumes else None
+    ampel = process_activity_ampel(account_id, volumes) if volumes else None
 
     # BPMN-Kostenübersicht (Aufwand/Kosten je Prozess aus dem BPMN-Modell)
     bpmn_summaries = []
@@ -124,4 +124,4 @@ def dashboard():
                 "total_cost": a["total_cost"], "expected_cost": a["expected_cost"],
             })
 
-    return render_template("dashboard.html", workload=workload, bpmn_summaries=bpmn_summaries)
+    return render_template("dashboard.html", ampel=ampel, bpmn_summaries=bpmn_summaries)

@@ -391,6 +391,8 @@ def process_edit(process_id=None):
             process.parent_process_id = int(form_parent_id) if form_parent_id else None
 
         process.owner_org_unit_id = int(owner_org_unit_id) if owner_org_unit_id else None
+        prio = request.form.get("priority", type=int)
+        process.priority = prio if prio in (1, 2, 3) else 2
         db.session.add(process)
         db.session.commit()
 

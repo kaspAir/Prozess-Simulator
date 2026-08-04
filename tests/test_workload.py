@@ -79,6 +79,25 @@ def test_borrow_suggests_qualified_person_with_spare_capacity(app):
         assert any(c["name"] == "Frei" for c in b["candidates"])
 
 
+def test_ampel_marks_overloaded_activity(app):
+    """Dashboard-Ampel: eine Aktivität mit überlasteter Person ist rot (Engpass),
+    und die Prozess-Priorität wird ausgewiesen."""
+    from app.models import db, Account, Organization, OrgUnit, Person, Process
+    from app.services.workload_service import process_activity_ampel
+    with app.app_context():
+        acc = Account(name="AM"); db.session.add(acc); db.session.flush()
+        org = Organization(name="O", account_id=acc.id); db.session.add(org); db.session.flush()
+        person = Person(name="P", account_id=acc.id, organization_id=org.id, fte=1.0, annual_salary=1)
+        db.session.add(person); db.session.flush()
+        pos = OrgUnit(organization_id=org.id, name="Stelle", unit_type="Stelle", person_id=person.id)
+        db.session.add(pos); db.session.flush()
+        proc = Process(name="Haupt", account_id=acc.id, priority=1, bpmn_xml=_task_xml(2000, pos.id))
+        db.session.add(proc); db.session.commit()
+        ampel = process_activity_ampel(acc.id, {proc.id: 100})   # 2000*100 min -> Engpass
+        assert ampel and ampel[0]["priority_label"] == "Hoch"
+        assert ampel[0]["activities"][0]["status"] == "Engpass"
+
+
 def test_workload_splits_effort_among_assigned_persons(app):
     """Zwei zugeordnete Personen teilen sich den Aufwand einer Aktivität."""
     from app.models import db, Account, Organization, OrgUnit, Person, Process

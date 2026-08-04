@@ -18,6 +18,15 @@
         </select>
     </label>
 
+    <label>Priorität
+        <select name="priority">
+            {% set _prio = process.priority if process and process.priority else 2 %}
+            <option value="1" {% if _prio == 1 %}selected{% endif %}>Hoch</option>
+            <option value="2" {% if _prio == 2 %}selected{% endif %}>Mittel</option>
+            <option value="3" {% if _prio == 3 %}selected{% endif %}>Niedrig</option>
+        </select>
+    </label>
+
     <label>In Prozesslandkarte eingebunden in
         <select name="parent_process_id">
             <option value="">kein übergeordneter Prozess / Hauptprozess</option>

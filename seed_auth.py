@@ -67,6 +67,19 @@ def ensure_process_annual_cases_column():
         db.session.commit()
 
 
+def ensure_process_priority_column():
+    """Ergaenzt die priority-Spalte in processes (datenerhaltend)."""
+    insp = inspect(db.engine)
+    if "processes" not in set(insp.get_table_names()):
+        return
+    cols = [c["name"] for c in insp.get_columns("processes")]
+    if "priority" not in cols:
+        db.session.execute(text(
+            "ALTER TABLE processes ADD COLUMN priority INTEGER NOT NULL DEFAULT 2"))
+        print("  + Spalte priority zu processes ergaenzt")
+        db.session.commit()
+
+
 def run():
     app = create_app()
     with app.app_context():
@@ -74,6 +87,7 @@ def run():
         ensure_account_columns()
         ensure_process_bpmn_column()
         ensure_process_annual_cases_column()
+        ensure_process_priority_column()
 
         # 1) Bootstrap-Account
         account = Account.query.first()

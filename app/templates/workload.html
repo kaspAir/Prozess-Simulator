@@ -16,6 +16,7 @@
     <p class="small">Wird gespeichert und auch im Dashboard verwendet.</p>
     {% for p in processes %}
     <label class="ta-field">{{ p.name }}
+      <span class="small"> · Priorität: {% if p.priority == 1 %}Hoch{% elif p.priority == 3 %}Niedrig{% else %}Mittel{% endif %}</span>
       <input type="number" name="v_{{ p.id }}" min="0" step="1"
              value="{{ volumes.get(p.id, '')|default('', true) }}" placeholder="z. B. 5000">
     </label>
@@ -39,7 +40,13 @@
     <tbody>
     {% for r in result.persons %}
       <tr>
-        <td>{{ r.name }}</td>
+        <td>{{ r.name }}
+          {% if r.by_process %}
+          <div class="small">
+            {% for bp in r.by_process %}{{ bp.process }} ({{ bp.priority_label }}) {{ "%.0f"|format(bp.load_h) }} h{% if not loop.last %} · {% endif %}{% endfor %}
+          </div>
+          {% endif %}
+        </td>
         <td>{{ "%.0f"|format(r.fte * 100) }}%</td>
         <td>{{ "%.1f"|format(r.load_h) }}</td>
         <td>{{ "%.1f"|format(r.capacity_h) }}</td>

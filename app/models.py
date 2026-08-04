@@ -82,6 +82,10 @@ class Process(db.Model):
     # Auslastungs-Seite gepflegt, vom Dashboard gelesen.
     annual_cases = db.Column(db.Float, nullable=False, default=0)
 
+    # Priorität des Prozesses (1 = hoch, 2 = mittel, 3 = niedrig). Steuert, welche
+    # Arbeit bei Überlast zu schützen bzw. eher zu verschieben ist.
+    priority = db.Column(db.Integer, nullable=False, default=2)
+
     parent = db.relationship("Process", remote_side=[id], backref="subprocesses")
     nodes = db.relationship("Node", back_populates="process", foreign_keys="Node.process_id")
     owner_org_unit_id = db.Column(db.Integer, db.ForeignKey("org_units.id"), nullable=True)

@@ -1,72 +1,49 @@
 {% extends "base.html" %}
 {% block content %}
+{% macro ampel_color(status) -%}
+{% if status == "Engpass" %}#b3261e{% elif status == "eng" %}#b8860b{% else %}#2e7d32{% endif %}
+{%- endmacro %}
+
 <section class="dashboard-header">
   <div class="section-title"><h2>Dashboard</h2></div>
   <p class="small">
-    Strategische Engpass-Sicht: prozessübergreifende Personen-Auslastung aus dem
-    gespeicherten Mengengerüst (BPMN-Modell). Das Mengengerüst pflegst Du unter
-    <a href="{{ url_for('process.workload') }}">Auslastung</a>.
+    Engpass-Ampel je Prozess und Aktivität. Die Farbe spiegelt die tatsächliche
+    Auslastung der ausführenden Personen (prozessübergreifend):
+    <span style="color:#2e7d32;">grün = Reserve</span>,
+    <span style="color:#b8860b;">gelb = eng</span>,
+    <span style="color:#b3261e;">rot = Engpass</span>.
+    Das Mengengerüst pflegst Du unter <a href="{{ url_for('process.workload') }}">Auslastung</a>.
   </p>
 </section>
 
+{% if not ampel %}
 <section>
-  <div class="section-title"><h2>Auslastung je Person</h2></div>
-  {% if not workload %}
   <p>Noch kein Mengengerüst erfasst. Trage unter
      <a href="{{ url_for('process.workload') }}">Auslastung</a> die Fälle pro Jahr je
-     Prozess ein – dann erscheinen hier die Engpässe.</p>
-  {% elif workload.persons %}
-  <table>
-    <thead><tr>
-      <th>Person</th><th>FTE</th><th>Belastung (h/Jahr)</th>
-      <th>Kapazität (h/Jahr)</th><th>Auslastung</th><th>Status</th>
-    </tr></thead>
-    <tbody>
-    {% for r in workload.persons %}
-      <tr>
-        <td>{{ r.name }}</td>
-        <td>{{ "%.0f"|format(r.fte * 100) }}%</td>
-        <td>{{ "%.1f"|format(r.load_h) }}</td>
-        <td>{{ "%.1f"|format(r.capacity_h) }}</td>
-        <td>{{ "%.0f"|format(r.util * 100) }}%</td>
-        <td>
-          {% if r.status == "Engpass" %}<span style="color:#b3261e;font-weight:600;">Engpass</span>
-          {% elif r.status == "eng" %}<span style="color:#b8860b;font-weight:600;">eng</span>
-          {% else %}<span style="color:#2e7d32;">ok</span>{% endif %}
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% if workload.unassigned_h > 0.05 %}
-  <p class="small" style="margin-top:.6rem;">
-    Zusätzlich <strong>{{ "%.1f"|format(workload.unassigned_h) }} h/Jahr</strong> Arbeit
-    ohne zugeordnete Person/Stelle.
-  </p>
-  {% endif %}
-  {% else %}
-  <p>Keine zugeordneten Personen in den Prozessen mit Mengengerüst.</p>
-  {% endif %}
+     Prozess ein – dann erscheint hier die Engpass-Ampel.</p>
 </section>
-
-{% if workload and workload.borrow %}
-<section>
-  <div class="section-title"><h2>Ausleih-Vorschläge bei Überlast</h2></div>
-  {% for b in workload.borrow %}
-  <div class="form-card" style="margin-bottom:.8rem;">
-    <strong>{{ b.name }}</strong>
-    <span style="color:#b3261e;font-weight:600;"> ({{ "%.0f"|format(b.util * 100) }}% – Engpass)</span>
-    <table style="margin-top:.5rem;">
-      <thead><tr><th>Möglicher Ausgleich</th><th>Freie Kapazität (h/Jahr)</th><th>Kann übernehmen</th></tr></thead>
-      <tbody>
-      {% for c in b.candidates %}
-        <tr><td>{{ c.name }}</td><td>{{ "%.1f"|format(c.spare_h) }}</td><td>{{ c.covers|join(", ") }}</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+{% else %}
+{% for p in ampel %}
+<section class="dashboard-process-card">
+  <div class="section-title" style="align-items:baseline;">
+    <h2 style="margin:0;">{{ p.process }}</h2>
+    <span class="small">Priorität: <strong>{{ p.priority_label }}</strong></span>
+  </div>
+  {% if p.engpass %}
+  <p style="color:#b3261e;font-weight:600;margin:.3rem 0 .6rem 0;">Engpass: {{ p.engpass }}</p>
+  {% endif %}
+  {% for a in p.activities %}
+  <div style="display:grid;grid-template-columns:minmax(160px,2fr) 90px 3fr 70px;gap:.6rem;align-items:center;padding:.25rem 0;border-bottom:1px solid rgba(0,0,0,.06);">
+    <div>{{ a.name }}<div class="small">{{ a.persons|join(", ") }}</div></div>
+    <div class="small">{{ "%.0f"|format(a.effort) }} Min./Fall</div>
+    <div style="background:rgba(0,0,0,.06);border-radius:5px;height:14px;overflow:hidden;">
+      <div style="height:100%;width:{{ [ (a.util * 66)|round(0,'floor')|int, 100 ]|min }}%;background:{{ ampel_color(a.status) }};"></div>
+    </div>
+    <div class="small" style="color:{{ ampel_color(a.status) }};font-weight:600;">{{ "%.0f"|format(a.util * 100) }}%</div>
   </div>
   {% endfor %}
 </section>
+{% endfor %}
 {% endif %}
 
 {% if bpmn_summaries %}
