@@ -112,6 +112,11 @@
             <a class="button js-export" href="{{ url_for('main.export_model_json') }}" data-filename="digitwin-modell.json" title="Modell als JSON-Datei herunterladen">Export JSON</a>
             <a class="button js-export" href="{{ url_for('main.export_model_xml') }}" data-filename="digitwin-modell.xml" title="Modell als XML-Datei herunterladen">Export XML</a>
             <a class="button" href="{{ url_for('organization.organization_import') }}" title="Modell aus JSON importieren">Importieren</a>
+            <form method="post" style="display:inline"
+                  action="{{ url_for('organization.merge_duplicates') }}"
+                  onsubmit="return confirm('Gleichnamige Rollen und Funktionen werden zu je einem Datensatz zusammengeführt (z. B. nach mehrfachem Import). Alle Verweise – Personen, Stellen, Prozesse/BPMN – werden umgehängt. Fortfahren?');">
+                <button type="submit" class="button" title="Doppelte Rollen/Funktionen zusammenführen">Duplikate bereinigen</button>
+            </form>
             <a class="button" href="{{ url_for('organization.organization_edit') }}">Organisation hinzufügen</a>
             {% if selected_org %}
                 <a class="button" href="{{ url_for('organization.organization_edit', organization_id=selected_org.id) }}">Organisation bearbeiten</a>

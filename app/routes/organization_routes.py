@@ -147,6 +147,20 @@ def organization_import():
     return render_template("organization_import.html")
 
 
+@organization_bp.route("/merge-duplicates", methods=["POST"])
+def merge_duplicates():
+    """Führt gleichnamige Rollen/Funktionen zusammen (nach Mehrfach-Import) und
+    hängt alle Verweise inkl. BPMN um."""
+    from app.services.dedup_service import merge_duplicates as _merge
+    c = _merge(_acc())
+    if c["functions_merged"] or c["roles_merged"]:
+        flash(f"Bereinigt: {c['functions_merged']} doppelte Funktion(en) und "
+              f"{c['roles_merged']} doppelte Rolle(n) zusammengeführt.", "success")
+    else:
+        flash("Keine doppelten Rollen oder Funktionen gefunden.", "success")
+    return redirect(url_for("organization.organization"))
+
+
 # ── Organisationseinheit ───────────────────────────────────────────────────
 @organization_bp.route("/unit/edit", methods=["GET", "POST"])
 @organization_bp.route("/unit/edit/<int:unit_id>", methods=["GET", "POST"])
