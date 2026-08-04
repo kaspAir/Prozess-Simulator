@@ -31,6 +31,56 @@ def test_effort_raw_and_expected():
     assert res["total_cost"] == 0 and res["expected_cost"] == 0   # keine Stellen -> 0
 
 
+def test_xor_merge_sums_to_full_visit():
+    """Zwei XOR-Zweige (60/40), die wieder zusammenlaufen: der Merge-Node wird von
+    100% der Fälle besucht, nicht nur vom stärkeren Zweig."""
+    xml = (
+        '<?xml version="1.0"?><bpmn:definitions '
+        'xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" '
+        'xmlns:pros="http://ditwi.ch/bpmn/pros" id="D" targetNamespace="x">'
+        '<bpmn:process id="P"><bpmn:startEvent id="s0"/>'
+        '<bpmn:exclusiveGateway id="g"/>'
+        '<bpmn:task id="ja" name="Direkt" pros:effortMinutes="10"/>'
+        '<bpmn:task id="nein" name="Umweg" pros:effortMinutes="10"/>'
+        '<bpmn:task id="m" name="Merge" pros:effortMinutes="50"/>'
+        '<bpmn:sequenceFlow id="a" sourceRef="s0" targetRef="g"/>'
+        '<bpmn:sequenceFlow id="b" sourceRef="g" targetRef="ja" pros:probability="60"/>'
+        '<bpmn:sequenceFlow id="c" sourceRef="g" targetRef="nein" pros:probability="40"/>'
+        '<bpmn:sequenceFlow id="d" sourceRef="ja" targetRef="m"/>'
+        '<bpmn:sequenceFlow id="e" sourceRef="nein" targetRef="m"/>'
+        '</bpmn:process></bpmn:definitions>'
+    )
+    res = analyze_bpmn(_Proc(xml))
+    m = next(a for a in res["activities"] if a["id"] == "m")
+    assert abs(m["visit_factor"] - 1.0) < 1e-6            # 0.6 + 0.4
+    assert abs(res["expected_effort"] - 60) < 1e-6        # 10*.6 + 10*.4 + 50*1
+
+
+def test_xor_unset_probs_split_equally():
+    """XOR ohne gesetzte Prozente: die Zweige teilen sich 100% gleichmässig (50/50),
+    an der Zusammenführung ergibt das 100% – nicht 200%."""
+    xml = (
+        '<?xml version="1.0"?><bpmn:definitions '
+        'xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" '
+        'xmlns:pros="http://ditwi.ch/bpmn/pros" id="D" targetNamespace="x">'
+        '<bpmn:process id="P"><bpmn:startEvent id="s0"/>'
+        '<bpmn:exclusiveGateway id="g"/>'
+        '<bpmn:task id="ja" name="A" pros:effortMinutes="10"/>'
+        '<bpmn:task id="nein" name="B" pros:effortMinutes="10"/>'
+        '<bpmn:task id="m" name="M" pros:effortMinutes="50"/>'
+        '<bpmn:sequenceFlow id="a" sourceRef="s0" targetRef="g"/>'
+        '<bpmn:sequenceFlow id="b" sourceRef="g" targetRef="ja"/>'
+        '<bpmn:sequenceFlow id="c" sourceRef="g" targetRef="nein"/>'
+        '<bpmn:sequenceFlow id="d" sourceRef="ja" targetRef="m"/>'
+        '<bpmn:sequenceFlow id="e" sourceRef="nein" targetRef="m"/>'
+        '</bpmn:process></bpmn:definitions>'
+    )
+    res = analyze_bpmn(_Proc(xml))
+    m = next(a for a in res["activities"] if a["id"] == "m")
+    assert abs(m["visit_factor"] - 1.0) < 1e-6            # 0.5 + 0.5, nicht 2.0
+    assert abs(res["expected_effort"] - 60) < 1e-6        # 10*.5 + 10*.5 + 50*1
+
+
 def test_empty_model():
     res = analyze_bpmn(_Proc(""))
     assert res["has_model"] is False

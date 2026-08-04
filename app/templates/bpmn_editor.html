@@ -68,6 +68,9 @@
     <button type="button" class="button" id="bpmn-analyze">Berechnen</button>
     <button type="button" class="button" id="bpmn-download">Als .bpmn herunterladen</button>
     <a class="button" href="{{ url_for('process.process_graph', process_id=process.id) }}">Zurück zum Prozess</a>
+    {% if back_to %}
+    <a class="button" href="{{ url_for('process.bpmn_editor', process_id=back_to) }}">← Zurück zum übergeordneten Prozess</a>
+    {% endif %}
     <span class="spacer"></span>
     <span id="bpmn-status"></span>
   </div>
@@ -103,6 +106,12 @@
       <h4>Aktivität</h4>
       <button type="button" class="button" id="task-open" style="width:100%;">Aktivität bearbeiten …</button>
       <div class="small" id="task-box-sub" style="margin-top:.45rem;"></div>
+    </div>
+
+    <div class="prob-box" id="sub-box" hidden>
+      <h4>Subprozess</h4>
+      <button type="button" class="button" id="sub-open" style="width:100%;">→ Subprozess öffnen</button>
+      <div class="small" style="margin-top:.45rem;">Oder per Doppelklick auf das Element.</div>
     </div>
   </div>
 
@@ -370,6 +379,20 @@
   }
   document.getElementById("task-open").addEventListener("click", () => { if (currentTask) openModal(currentTask); });
 
+  // ── Subprozess-Navigation (Doppelklick auf CallActivity oder Panel-Knopf) ──
+  const subBox = document.getElementById("sub-box");
+  let currentSub = null;
+  const isCallActivity = (el) => !!el && el.type === "bpmn:CallActivity";
+  const subIdOf = (el) => (el && el.businessObject) ? attr(el.businessObject, "pros:subprocessId") : null;
+  const subEditorUrl = (subId) => "/process/" + encodeURIComponent(subId) + "/bpmn?from={{ process.id }}";
+  function openSubprocess(subId) { if (subId) window.location.href = subEditorUrl(subId); }
+  function showSub(el) { currentSub = subIdOf(el); subBox.hidden = false; }
+  document.getElementById("sub-open").addEventListener("click", () => openSubprocess(currentSub));
+  modeler.get("eventBus").on("element.dblclick", 2000, (e) => {
+    const sid = isCallActivity(e.element) ? subIdOf(e.element) : null;
+    if (sid) { openSubprocess(sid); return false; }   // bpmn-js-Default (Label-Edit) unterdrücken
+  });
+
   // ── Aktivitäts-Modal (grosses Fenster mit Checkboxen) ──
   const modal = document.getElementById("task-modal");
   const tmTitle = document.getElementById("tm-title");
@@ -481,7 +504,7 @@
 
   modeler.on("selection.changed", (ev) => {
     const sel = ev.newSelection || [];
-    probBox.hidden = true; taskBox.hidden = true; laneBox.hidden = true;
+    probBox.hidden = true; taskBox.hidden = true; laneBox.hidden = true; subBox.hidden = true;
     if (sel.length !== 1) return;
     const el = sel[0];
     if (isProbGateway(el)) {
@@ -491,6 +514,8 @@
       renderPanel([el], "Pfad-Wahrscheinlichkeit");
     } else if (isLane(el)) {
       showLane(el);
+    } else if (isCallActivity(el) && subIdOf(el)) {
+      showSub(el);
     } else if (isTask(el)) {
       showTask(el);
     }

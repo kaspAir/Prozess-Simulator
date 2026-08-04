@@ -88,7 +88,8 @@ def bpmn_editor(process_id):
                    "function_ids": [f.id for f in r.functions]} for r in roles],
         "functions": [{"id": f.id, "name": f.name} for f in functions],
     }
-    return render_template("bpmn_editor.html", process=process, catalog=catalog)
+    back_to = request.args.get("from", type=int)   # übergeordneter Prozess (Subprozess-Navigation)
+    return render_template("bpmn_editor.html", process=process, catalog=catalog, back_to=back_to)
 
 
 @process_bp.route("/api/process/<int:process_id>/bpmn", methods=["GET"])

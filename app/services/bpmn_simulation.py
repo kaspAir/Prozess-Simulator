@@ -35,23 +35,49 @@ def _minute_cost(person):
 
 
 def _visit_factors(node_ids, starts, flows):
-    """Erwartete Besuchshäufigkeit je Node (Start=1.0, XOR-Prob als Multiplikator)."""
-    factors = {n: 0.0 for n in node_ids}
-    for s in starts:
-        factors[s] = 1.0
-    if not starts:
+    """Erwartete Besuchshäufigkeit je Node.
+
+    Start = 1.0. Für jeden Node ist der Wert die SUMME der einlaufenden Beiträge
+    (Quelle x Pfad-Wahrscheinlichkeit). Damit zählen zusammenlaufende XOR-Zweige
+    zusammen: ein Node hinter «60% ja» UND «40% nein (nach Umweg)» wird von 100%
+    der Fälle besucht – nicht bloss vom stärkeren Zweig. Iterative Auswertung
+    (Jacobi): exakt für azyklische Graphen, konvergent für Rücksprünge mit p<1.
+    """
+    node_ids = set(node_ids)
+    start_set = set(starts)
+    if not start_set:
         return {n: 1.0 for n in node_ids}   # ohne Start nicht propagierbar -> je 1x
-    for _ in range(max(1, len(node_ids) * 2)):
+
+    # Ausgehende Flows je Quelle -> bedingte Wahrscheinlichkeit P(Flow | Quelle).
+    # Ein einzelner Ausgang = 100%. Bei mehreren Ausgängen (Verzweigung) gelten die
+    # gesetzten Prozente; nicht gesetzte Zweige teilen sich den Rest zu gleichen
+    # Teilen (XOR-Semantik – die Ausgänge summieren sich auf höchstens 100%).
+    outgoing = {}
+    for f in flows:
+        outgoing.setdefault(f["source"], []).append(f)
+    incoming = {}
+    for src, outs in outgoing.items():
+        if len(outs) == 1:
+            conds = [1.0]
+        else:
+            set_total = sum(o["prob"] / 100.0 for o in outs if o["prob"] is not None)
+            unset = [o for o in outs if o["prob"] is None]
+            share = (max(0.0, 1.0 - set_total) / len(unset)) if unset else 0.0
+            conds = [(o["prob"] / 100.0) if o["prob"] is not None else share for o in outs]
+        for o, c in zip(outs, conds):
+            incoming.setdefault(o["target"], []).append((src, c))
+
+    factors = {n: (1.0 if n in start_set else 0.0) for n in node_ids}
+    for _ in range(len(node_ids) + 2):
         changed = False
-        for f in flows:
-            src = factors.get(f["source"], 0.0)
-            if src <= 0:
-                continue
-            mult = (f["prob"] / 100.0) if f["prob"] is not None else 1.0
-            cand = src * mult
-            if cand > factors.get(f["target"], 0.0):
-                factors[f["target"]] = cand
+        new = {}
+        for n in node_ids:
+            val = 1.0 if n in start_set else sum(
+                factors.get(src, 0.0) * p for src, p in incoming.get(n, []))
+            new[n] = val
+            if abs(val - factors.get(n, 0.0)) > 1e-9:
                 changed = True
+        factors = new
         if not changed:
             break
     return factors
