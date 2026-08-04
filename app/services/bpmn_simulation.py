@@ -12,7 +12,7 @@ Deterministisch; das (nutzererstellte) BPMN-XML wird XXE-sicher mit defusedxml g
 """
 import defusedxml.ElementTree as DET
 
-from app.models import OrgUnit, Organization, Person
+from app.models import OrgUnit, Organization, Person, Process
 
 BPMN_NS = "http://www.omg.org/spec/BPMN/20100524/MODEL"
 PROS_NS = "http://ditwi.ch/bpmn/pros"
@@ -63,7 +63,12 @@ def _empty():
             "total_cost": 0.0, "expected_cost": 0.0}
 
 
-def analyze_bpmn(process):
+def analyze_bpmn(process, _seen=None):
+    """Aufwand/Kosten eines Prozesses. CallActivities mit pros:subprocessId werden
+    rekursiv eingerechnet (der Subprozess zählt zum Aufwand/den Kosten des Eltern-
+    prozesses; im erwarteten Wert mit der Besuchshäufigkeit der CallActivity
+    gewichtet). _seen verhindert Endlosschleifen bei zyklischen Verweisen."""
+    seen = set(_seen or ())
     from app.services.node_to_bpmn import effective_bpmn
     # Gespeichertes BPMN, sonst aus dem Node-Modell erzeugt – damit die Kosten-
     # Analyse bestehende Prozesse ohne Export/Import mitrechnet (wie der Editor).
@@ -154,6 +159,35 @@ def analyze_bpmn(process):
         exp_e += exp_effort
         tot_c += raw_cost
         exp_c += exp_cost
+
+    # ── Subprozesse einrechnen (CallActivity -> anderer Prozess) ──
+    pid = getattr(process, "id", None)
+    for eid, el in tasks.items():
+        if _local(el.tag) != "callActivity":
+            continue
+        sid = (_pros(el, "subprocessId") or "").strip()
+        if not sid.isdigit() or int(sid) in seen:
+            continue
+        cid = int(sid)
+        child = Process.query.filter_by(id=cid).first()
+        if child is None or (acc_id is not None and child.account_id != acc_id):
+            continue
+        child_res = analyze_bpmn(child, _seen=seen | {pid, cid})
+        if not child_res["has_model"]:
+            continue
+        visit = factors.get(eid, 1.0)     # Besuchshäufigkeit der CallActivity
+        tot_e += child_res["total_effort"]
+        tot_c += child_res["total_cost"]
+        exp_e += visit * child_res["expected_effort"]
+        exp_c += visit * child_res["expected_cost"]
+        label = child.name or "Subprozess"
+        for a in child_res["activities"]:
+            activities.append({**a,
+                               "name": "↳ %s · %s" % (label, a.get("name") or ""),
+                               "visit_factor": a["visit_factor"] * visit,
+                               "expected_effort": a["expected_effort"] * visit,
+                               "expected_cost": a["expected_cost"] * visit,
+                               "subprocess": label})
 
     activities.sort(key=lambda a: (a["name"] or "").lower())
     return {"has_model": True, "activities": activities,

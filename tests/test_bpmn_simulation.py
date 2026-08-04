@@ -88,6 +88,69 @@ def test_analyze_falls_back_to_node_model(app):
         assert abs(res["total_effort"] - 25) < 1e-6
 
 
+def test_subprocess_rolled_into_parent(app):
+    """CallActivity mit pros:subprocessId zieht Aufwand/Kosten des Subprozesses in
+    den Elternprozess (erwartet mit der Besuchshäufigkeit gewichtet)."""
+    from app.models import db, Account, Process
+    with app.app_context():
+        acc = Account(name="AccSub"); db.session.add(acc); db.session.flush()
+        child = Process(name="Abklärungen", account_id=acc.id, bpmn_xml=(
+            '<?xml version="1.0"?><bpmn:definitions '
+            'xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" '
+            'xmlns:pros="http://ditwi.ch/bpmn/pros" id="D" targetNamespace="x">'
+            '<bpmn:process id="S"><bpmn:startEvent id="s0"/>'
+            '<bpmn:task id="ct" name="Abklärung" pros:effortMinutes="30"/>'
+            '<bpmn:sequenceFlow id="sf" sourceRef="s0" targetRef="ct"/>'
+            '</bpmn:process></bpmn:definitions>'))
+        db.session.add(child); db.session.flush()
+        parent = Process(name="Haupt", account_id=acc.id, bpmn_xml=(
+            '<?xml version="1.0"?><bpmn:definitions '
+            'xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" '
+            'xmlns:pros="http://ditwi.ch/bpmn/pros" id="D" targetNamespace="x">'
+            '<bpmn:process id="P"><bpmn:startEvent id="p0"/>'
+            '<bpmn:task id="pt" name="Erstellen" pros:effortMinutes="20"/>'
+            f'<bpmn:callActivity id="ca" name="Zusätzliche" pros:subprocessId="{child.id}"/>'
+            '<bpmn:sequenceFlow id="f1" sourceRef="p0" targetRef="pt"/>'
+            '<bpmn:sequenceFlow id="f2" sourceRef="pt" targetRef="ca"/>'
+            '</bpmn:process></bpmn:definitions>'))
+        db.session.add(parent); db.session.commit()
+
+        res = analyze_bpmn(parent)
+        assert abs(res["total_effort"] - 50) < 1e-6      # 20 + Subprozess 30
+        assert abs(res["expected_effort"] - 50) < 1e-6   # CallActivity-Faktor 1
+        assert any(a.get("subprocess") for a in res["activities"])
+
+
+def _proc_xml(pid, effort, call_to=None):
+    call = ('<bpmn:callActivity id="c_%s" name="ruf" pros:subprocessId="%d"/>'
+            % (pid, call_to)) if call_to else ""
+    return (
+        '<?xml version="1.0"?><bpmn:definitions '
+        'xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" '
+        'xmlns:pros="http://ditwi.ch/bpmn/pros" id="D" targetNamespace="x">'
+        '<bpmn:process id="%s"><bpmn:startEvent id="s_%s"/>'
+        '<bpmn:task id="t_%s" name="T_%s" pros:effortMinutes="%d"/>'
+        '%s</bpmn:process></bpmn:definitions>' % (pid, pid, pid, pid, effort, call))
+
+
+def test_subprocess_nested_and_cycle_safe(app):
+    """Generisch & rekursiv: A ruft B ruft C (verschachtelt); ein Ringverweis
+    C->A darf nicht endlos laufen. Aufwand = 20+5+10 = 35."""
+    from app.models import db, Account, Process
+    with app.app_context():
+        acc = Account(name="AccNest"); db.session.add(acc); db.session.flush()
+        a = Process(name="A", account_id=acc.id); db.session.add(a)
+        b = Process(name="B", account_id=acc.id); db.session.add(b)
+        c = Process(name="C", account_id=acc.id); db.session.add(c)
+        db.session.flush()
+        a.bpmn_xml = _proc_xml("A", 20, call_to=b.id)
+        b.bpmn_xml = _proc_xml("B", 5, call_to=c.id)
+        c.bpmn_xml = _proc_xml("C", 10, call_to=a.id)   # Ringverweis
+        db.session.commit()
+        res = analyze_bpmn(a)
+        assert abs(res["total_effort"] - 35) < 1e-6     # A + B + C, jeder einmal
+
+
 def test_cost_prefers_selected_person(app):
     """Sind konkrete Mitarbeitende gewählt (personIds), zählt deren Kostensatz."""
     from app.models import db, Account, Organization, OrgUnit, Person, Process
