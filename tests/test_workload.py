@@ -79,6 +79,29 @@ def test_borrow_suggests_qualified_person_with_spare_capacity(app):
         assert any(c["name"] == "Frei" for c in b["candidates"])
 
 
+def test_peak_reveals_overload_hidden_by_annual(app):
+    """Lastperiode: ein kurzer Peak (×10, 1 Tag) macht eine Überlast sichtbar, die
+    im Jahresschnitt unauffällig ist."""
+    from app.models import db, Account, Organization, OrgUnit, Person, Process
+    from app.services.workload_service import peak_workload, cross_process_workload
+    with app.app_context():
+        acc = Account(name="PK"); db.session.add(acc); db.session.flush()
+        org = Organization(name="O", account_id=acc.id); db.session.add(org); db.session.flush()
+        person = Person(name="P", account_id=acc.id, organization_id=org.id, fte=1.0, annual_salary=1)
+        db.session.add(person); db.session.flush()
+        pos = OrgUnit(organization_id=org.id, name="Stelle", unit_type="Stelle", person_id=person.id)
+        db.session.add(pos); db.session.flush()
+        # 220 Fälle/Jahr (=1/Tag), 60 Min./Fall -> jährlich unkritisch
+        proc = Process(name="P", account_id=acc.id, annual_cases=220, bpmn_xml=_task_xml(60, pos.id))
+        db.session.add(proc); db.session.commit()
+
+        annual = cross_process_workload(acc.id, {proc.id: 220})
+        assert annual["persons"][0]["util"] < 0.2                 # jährlich entspannt
+
+        peak = peak_workload(acc.id, proc.id, 10, 1)              # ×10 an 1 Tag
+        assert peak["persons"][0]["util"] > 1.0                   # in der Periode Engpass
+
+
 def test_ampel_marks_overloaded_activity(app):
     """Dashboard-Ampel: eine Aktivität mit überlasteter Person ist rot (Engpass),
     und die Prozess-Priorität wird ausgewiesen."""

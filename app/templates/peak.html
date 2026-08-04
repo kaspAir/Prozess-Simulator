@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <div class="section-title"><h2>Lastperiode / Peak</h2></div>
+  <p class="small">
+    Temporäre Spitze in einem Prozess (z. B. «Zürifest»: ×10 während 2 Tagen). Das
+    Tool rechnet die Auslastung <strong>in der Periode</strong> – nicht im Jahresschnitt,
+    der einen kurzen Peak verschluckt. Mit <em>Frist</em> muss die Arbeit innerhalb der
+    Periode erledigt sein; überlastete Personen bedeuten dann eine Fristverletzung.
+    Annahme: 220 Arbeitstage/Jahr.
+  </p>
+
+  {% if processes %}
+  <form method="get" class="form-card">
+    <label class="ta-field">Prozess mit Peak
+      <select name="peak">
+        {% for p in processes %}
+        <option value="{{ p.id }}" {% if peak_id == p.id %}selected{% endif %}>{{ p.name }} ({{ "%.0f"|format(p.annual_cases) }} Fälle/Jahr)</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="ta-field">Faktor (z. B. 10 = zehnfach)
+      <input type="number" name="factor" min="1" step="0.5" value="{{ factor or 10 }}">
+    </label>
+    <label class="ta-field">Dauer (Arbeitstage)
+      <input type="number" name="days" min="1" step="1" value="{{ days or 2 }}">
+    </label>
+    <label><input type="checkbox" name="frist" value="1" {% if frist %}checked{% endif %}> Frist: muss innerhalb der Periode erledigt sein</label>
+    <button type="submit" class="button">Peak berechnen</button>
+  </form>
+  {% else %}
+  <p>Erfasse zuerst unter <a href="{{ url_for('process.workload') }}">Auslastung</a>
+     ein Mengengerüst (Fälle/Jahr) je Prozess.</p>
+  {% endif %}
+</section>
+
+{% if result %}
+{% set overloaded = result.persons | selectattr('util', 'gt', 1.0) | list %}
+<section>
+  <div class="section-title"><h2>Auslastung in der Periode{% if peak_name %} – {{ peak_name }}{% endif %}</h2></div>
+  {% if frist and overloaded %}
+  <p style="color:#b3261e;font-weight:600;">
+    ⚠ Frist nicht haltbar: {{ overloaded|length }} Person(en) sind in der Periode überlastet –
+    die Arbeit lässt sich nicht fristgerecht erledigen. Massnahme nötig (Ausleihen, Überstunden, Umpriorisieren).
+  </p>
+  {% elif frist %}
+  <p style="color:#2e7d32;font-weight:600;">✓ Frist haltbar: niemand ist in der Periode über 100 %.</p>
+  {% endif %}
+  {% if result.persons %}
+  <table>
+    <thead><tr>
+      <th>Person</th><th>FTE</th><th>Belastung (h)</th><th>Kapazität (h)</th><th>Auslastung</th><th>Status</th>
+    </tr></thead>
+    <tbody>
+    {% for r in result.persons %}
+      <tr>
+        <td>{{ r.name }}</td>
+        <td>{{ "%.0f"|format(r.fte * 100) }}%</td>
+        <td>{{ "%.1f"|format(r.load_h) }}</td>
+        <td>{{ "%.1f"|format(r.capacity_h) }}</td>
+        <td>{{ "%.0f"|format(r.util * 100) }}%</td>
+        <td>
+          {% if r.status == "Engpass" %}<span style="color:#b3261e;font-weight:600;">Engpass</span>
+          {% elif r.status == "eng" %}<span style="color:#b8860b;font-weight:600;">eng</span>
+          {% else %}<span style="color:#2e7d32;">ok</span>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Keine zugeordneten Personen in den betroffenen Prozessen.</p>
+  {% endif %}
+</section>
+
+{% if result.borrow %}
+<section>
+  <div class="section-title"><h2>Ausleih-Vorschläge für die Periode</h2></div>
+  {% for b in result.borrow %}
+  <div class="form-card" style="margin-bottom:.8rem;">
+    <strong>{{ b.name }}</strong>
+    <span style="color:#b3261e;font-weight:600;"> ({{ "%.0f"|format(b.util * 100) }}% – Engpass)</span>
+    <table style="margin-top:.5rem;">
+      <thead><tr><th>Möglicher Ausgleich</th><th>Freie Kapazität (h)</th><th>Kann übernehmen</th></tr></thead>
+      <tbody>
+      {% for c in b.candidates %}
+        <tr><td>{{ c.name }}</td><td>{{ "%.1f"|format(c.spare_h) }}</td><td>{{ c.covers|join(", ") }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

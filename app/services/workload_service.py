@@ -17,6 +17,7 @@ from app.services.bpmn_simulation import analyze_bpmn, ANNUAL_WORKING_MINUTES
 from app.services.node_to_bpmn import effective_bpmn
 
 PRIORITY_LABELS = {1: "Hoch", 2: "Mittel", 3: "Niedrig"}
+WORKING_DAYS_PER_YEAR = 220        # Annahme für die Umrechnung Jahr <-> Tag
 
 
 def _status(util):
@@ -42,9 +43,11 @@ def entry_processes(account_id):
     return [p for p in procs if p.id not in called]
 
 
-def cross_process_workload(account_id, volumes):
-    """volumes: {process_id: Fälle/Jahr}. Gibt je Person Belastung/Kapazität/Auslastung
-    (in Stunden/Jahr) zurück, plus die nicht zugeordnete Belastung."""
+def cross_process_workload(account_id, volumes, capacity_per_fte=ANNUAL_WORKING_MINUTES):
+    """volumes: {process_id: Fallzahl}. Gibt je Person Belastung/Kapazität/Auslastung
+    zurück (Stunden), plus die nicht zugeordnete Belastung. capacity_per_fte ist die
+    Kapazität einer 100%-Stelle im betrachteten Zeitraum (Standard: Jahr) – für die
+    Lastperiode wird stattdessen die Fenster-Kapazität übergeben."""
     load_min, unassigned_min = {}, 0.0
     needed_fn, needed_role = {}, {}   # person_id -> benötigte Funktions-/Rollen-IDs
     per_process = {}                  # person_id -> {process_id -> Minuten}
@@ -81,7 +84,7 @@ def cross_process_workload(account_id, volumes):
               .filter(Organization.account_id == account_id, OrgUnit.person_id.isnot(None)).all())}
 
     def capacity_min(p):
-        return (p.fte if p.fte is not None else 1.0) * ANNUAL_WORKING_MINUTES
+        return (p.fte if p.fte is not None else 1.0) * capacity_per_fte
 
     rows = []
     for p in all_persons:
@@ -144,6 +147,24 @@ def cross_process_workload(account_id, volumes):
             borrow.append({"name": r["name"], "util": r["util"], "candidates": cands[:5]})
 
     return {"persons": rows, "unassigned_h": unassigned_min / 60.0, "borrow": borrow}
+
+
+def peak_workload(account_id, peak_process_id, factor, days):
+    """Lastperiode («Peak»): Fenster von `days` Arbeitstagen; im gewählten Prozess
+    wird die Fallzahl mit `factor` multipliziert, die übrigen laufen normal weiter.
+    Auslastung je Person IN DER PERIODE (gegen die Fenster-Kapazität) – so wird ein
+    temporärer Peak sichtbar, den der Jahresschnitt verschluckt."""
+    days = max(1, days)
+    window_volumes = {}
+    for pr in Process.query.filter_by(account_id=account_id).all():
+        annual = pr.annual_cases or 0
+        if annual <= 0:
+            continue
+        per_day = annual / WORKING_DAYS_PER_YEAR
+        f = factor if pr.id == peak_process_id else 1.0
+        window_volumes[pr.id] = per_day * days * f
+    window_cap = (ANNUAL_WORKING_MINUTES / WORKING_DAYS_PER_YEAR) * days
+    return cross_process_workload(account_id, window_volumes, capacity_per_fte=window_cap)
 
 
 def process_activity_ampel(account_id, volumes):

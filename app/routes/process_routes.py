@@ -132,22 +132,51 @@ def api_bpmn_save(process_id):
     return jsonify({"ok": True})
 
 
-@process_bp.route("/workload", methods=["GET", "POST"])
+@process_bp.route("/save-volumes", methods=["POST"])
+def save_volumes():
+    """Speichert das Mengengerüst (Fälle/Jahr) je Einstiegsprozess. Wird von der
+    Auslastungs- UND der Dashboard-Seite genutzt (zentral, also synchron)."""
+    from app.services.workload_service import entry_processes
+    acc = current_account_id()
+    for p in entry_processes(acc):
+        v = request.form.get("v_%d" % p.id, type=float)
+        p.annual_cases = v if (v and v > 0) else 0
+    db.session.commit()
+    if request.form.get("next") == "dashboard":
+        return redirect(url_for("main.dashboard"))
+    return redirect(url_for("process.workload"))
+
+
+@process_bp.route("/workload")
 def workload():
     """Prozessübergreifende Personen-Auslastung: je Person die Belastung über alle
-    Einstiegsprozesse (inkl. Subprozesse) beim gespeicherten Mengengerüst je Prozess.
-    POST speichert das Mengengerüst (Fälle/Jahr) je Prozess."""
+    Einstiegsprozesse (inkl. Subprozesse) beim gespeicherten Mengengerüst je Prozess."""
     from app.services.workload_service import entry_processes, cross_process_workload
     acc = current_account_id()
     procs = entry_processes(acc)
-    if request.method == "POST":
-        for p in procs:
-            v = request.form.get("v_%d" % p.id, type=float)
-            p.annual_cases = v if (v and v > 0) else 0
-        db.session.commit()
     volumes = {p.id: p.annual_cases for p in procs if (p.annual_cases or 0) > 0}
     result = cross_process_workload(acc, volumes) if volumes else None
     return render_template("workload.html", processes=procs, volumes=volumes, result=result)
+
+
+@process_bp.route("/peak")
+def peak():
+    """Lastperiode/Peak: temporäres Fenster (Tage) mit erhöhter Fallzahl in einem
+    Prozess → Auslastung je Person in der Periode, plus Frist-Prüfung."""
+    from app.services.workload_service import entry_processes, peak_workload
+    acc = current_account_id()
+    procs = [p for p in entry_processes(acc) if (p.annual_cases or 0) > 0]
+    peak_id = request.args.get("peak", type=int)
+    factor = request.args.get("factor", type=float)
+    days = request.args.get("days", type=int)
+    frist = request.args.get("frist") == "1"
+    result = None
+    if peak_id and factor and factor > 0 and days and days > 0:
+        result = peak_workload(acc, peak_id, factor, days)
+    peak_name = next((p.name for p in procs if p.id == peak_id), None)
+    return render_template("peak.html", processes=procs, result=result,
+                           peak_id=peak_id, factor=factor, days=days, frist=frist,
+                           peak_name=peak_name)
 
 
 @process_bp.route("/api/process/<int:process_id>/bpmn/analysis", methods=["GET"])

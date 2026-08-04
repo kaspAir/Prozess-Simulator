@@ -12,9 +12,28 @@
     <span style="color:#2e7d32;">grün = Reserve</span>,
     <span style="color:#b8860b;">gelb = eng</span>,
     <span style="color:#b3261e;">rot = Engpass</span>.
-    Das Mengengerüst pflegst Du unter <a href="{{ url_for('process.workload') }}">Auslastung</a>.
+    Das Mengengerüst ist mit der <a href="{{ url_for('process.workload') }}">Auslastung</a>
+    synchronisiert (gleiche Zahlen).
   </p>
 </section>
+
+{% if entry_procs %}
+<section>
+  <details>
+    <summary style="cursor:pointer;font-weight:600;">Mengengerüst (Fälle pro Jahr) bearbeiten</summary>
+    <form method="post" action="{{ url_for('process.save_volumes') }}" class="form-card" style="margin-top:.6rem;">
+      <input type="hidden" name="next" value="dashboard">
+      {% for p in entry_procs %}
+      <label class="ta-field">{{ p.name }}
+        <input type="number" name="v_{{ p.id }}" min="0" step="1"
+               value="{{ p.annual_cases|round(0, 'floor')|int if p.annual_cases else '' }}" placeholder="z. B. 5000">
+      </label>
+      {% endfor %}
+      <button type="submit" class="button">Speichern</button>
+    </form>
+  </details>
+</section>
+{% endif %}
 
 {% if not ampel %}
 <section>

@@ -11,9 +11,10 @@
   </p>
 
   {% if processes %}
-  <form method="post" class="form-card">
+  <form method="post" action="{{ url_for('process.save_volumes') }}" class="form-card">
+    <input type="hidden" name="next" value="workload">
     <h3 style="margin-top:0;">Mengengerüst (Fälle pro Jahr)</h3>
-    <p class="small">Wird gespeichert und auch im Dashboard verwendet.</p>
+    <p class="small">Wird gespeichert und auch im Dashboard verwendet (synchron).</p>
     {% for p in processes %}
     <label class="ta-field">{{ p.name }}
       <span class="small"> · Priorität: {% if p.priority == 1 %}Hoch{% elif p.priority == 3 %}Niedrig{% else %}Mittel{% endif %}</span>
