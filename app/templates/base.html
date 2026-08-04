@@ -50,6 +50,10 @@
                     <a href="{{ url_for('process.simulation') }}">Simulation</a>
                 {% endif %}
 
+                {% if endpoint_exists('process.workload') %}
+                    <a href="{{ url_for('process.workload') }}">Auslastung</a>
+                {% endif %}
+
                 {% if endpoint_exists('main.appearance') %}
                     <a href="{{ url_for('main.appearance') }}">Erscheinungsbild</a>
                 {% endif %}

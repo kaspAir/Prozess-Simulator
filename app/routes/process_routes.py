@@ -132,6 +132,22 @@ def api_bpmn_save(process_id):
     return jsonify({"ok": True})
 
 
+@process_bp.route("/workload")
+def workload():
+    """Prozessübergreifende Personen-Auslastung: je Person die Belastung über alle
+    Einstiegsprozesse (inkl. Subprozesse) bei gewähltem Mengengerüst je Prozess."""
+    from app.services.workload_service import entry_processes, cross_process_workload
+    acc = current_account_id()
+    procs = entry_processes(acc)
+    volumes = {}
+    for p in procs:
+        v = request.args.get("v_%d" % p.id, type=float)
+        if v and v > 0:
+            volumes[p.id] = v
+    result = cross_process_workload(acc, volumes) if volumes else None
+    return render_template("workload.html", processes=procs, volumes=volumes, result=result)
+
+
 @process_bp.route("/api/process/<int:process_id>/bpmn/analysis", methods=["GET"])
 def api_bpmn_analysis(process_id):
     """Aufwand/Kosten je Aktivität + Prozess-Summe (roh & erwartet) aus dem BPMN."""
