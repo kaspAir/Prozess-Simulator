@@ -38,6 +38,44 @@ def test_workload_sums_person_across_processes(app):
         assert r["util"] > 1.0 and r["status"] == "Engpass"
 
 
+def test_borrow_suggests_qualified_person_with_spare_capacity(app):
+    """Überlastete Person, deren Aktivität Funktion F braucht -> eine freie Person
+    mit Funktion F wird als Ausgleich vorgeschlagen."""
+    from app.models import db, Account, Organization, OrgUnit, Person, Function, Process
+    from app.services.workload_service import cross_process_workload
+    with app.app_context():
+        acc = Account(name="B"); db.session.add(acc); db.session.flush()
+        org = Organization(name="O", account_id=acc.id); db.session.add(org); db.session.flush()
+        f = Function(name="Prüfen", account_id=acc.id); db.session.add(f); db.session.flush()
+        overloaded = Person(name="Over", account_id=acc.id, organization_id=org.id,
+                            fte=1.0, annual_salary=1)
+        helper = Person(name="Frei", account_id=acc.id, organization_id=org.id,
+                        fte=1.0, annual_salary=1)
+        helper.functions = [f]                    # kann Prüfen, hat keine Last
+        db.session.add_all([overloaded, helper]); db.session.flush()
+        pos = OrgUnit(organization_id=org.id, name="Stelle", unit_type="Stelle",
+                      person_id=overloaded.id)
+        db.session.add(pos); db.session.flush()
+        xml = (
+            '<?xml version="1.0"?><bpmn:definitions '
+            'xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" '
+            'xmlns:pros="http://ditwi.ch/bpmn/pros" id="D" targetNamespace="x">'
+            '<bpmn:process id="P"><bpmn:startEvent id="s0"/>'
+            f'<bpmn:task id="A" name="A" pros:effortMinutes="2000" '
+            f'pros:positionIds="{pos.id}" pros:functionIds="{f.id}"/>'
+            '<bpmn:sequenceFlow id="ff" sourceRef="s0" targetRef="A"/>'
+            '</bpmn:process></bpmn:definitions>'
+        )
+        pr = Process(name="P", account_id=acc.id, bpmn_xml=xml)
+        db.session.add(pr); db.session.commit()
+
+        res = cross_process_workload(acc.id, {pr.id: 100})   # 2000*100 min -> weit ueber 2100 h
+        assert res["borrow"], "es sollte einen Ausleih-Vorschlag geben"
+        b = res["borrow"][0]
+        assert b["name"] == "Over"
+        assert any(c["name"] == "Frei" for c in b["candidates"])
+
+
 def test_workload_splits_effort_among_assigned_persons(app):
     """Zwei zugeordnete Personen teilen sich den Aufwand einer Aktivität."""
     from app.models import db, Account, Organization, OrgUnit, Person, Process

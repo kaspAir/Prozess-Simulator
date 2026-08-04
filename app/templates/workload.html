@@ -62,5 +62,34 @@
   </p>
   {% endif %}
 </section>
+
+{% if result.borrow %}
+<section>
+  <div class="section-title"><h2>Ausleih-Vorschläge bei Überlast</h2></div>
+  <p class="small">
+    Für jede überlastete Person werden Kolleg:innen vorgeschlagen, die eine
+    <strong>benötigte Funktion abdecken</strong> und noch <strong>freie Kapazität</strong>
+    haben. Das System schlägt nur vor – die Entscheidung bleibt bei Dir.
+  </p>
+  {% for b in result.borrow %}
+  <div class="form-card" style="margin-bottom:.8rem;">
+    <strong>{{ b.name }}</strong>
+    <span style="color:#b3261e;font-weight:600;"> ({{ "%.0f"|format(b.util * 100) }}% – Engpass)</span>
+    <table style="margin-top:.5rem;">
+      <thead><tr><th>Möglicher Ausgleich</th><th>Freie Kapazität (h/Jahr)</th><th>Kann übernehmen</th></tr></thead>
+      <tbody>
+      {% for c in b.candidates %}
+        <tr>
+          <td>{{ c.name }}</td>
+          <td>{{ "%.1f"|format(c.spare_h) }}</td>
+          <td>{{ c.covers|join(", ") }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
 {% endif %}
 {% endblock %}

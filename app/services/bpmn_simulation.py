@@ -221,6 +221,8 @@ def analyze_bpmn(process, _seen=None):
             "legal_basis": _pros(el, "legalBasis") or "",
             "positions": sorted({p.name for p in pos}),   # gleiche Namen nur einmal
             "persons": [{"id": pp.id, "name": pp.name} for pp in persons],
+            "req_function_ids": req_f,
+            "req_role_ids": req_r,
             "gaps": gaps,
         })
         tot_e += effort
