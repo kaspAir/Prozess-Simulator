@@ -155,6 +155,19 @@ def analyze_bpmn(process, _seen=None):
             pq = pq.filter(Person.account_id == acc_id)
         persons_by_id = {p.id: p for p in pq.all()}
 
+    # Verteilungsregel «alle mit der Rolle»: Personen je Rolle, die tatsächlich eine
+    # Stelle besetzen. Fordert eine Aktivität eine Rolle (ohne konkrete Person), wird
+    # die Arbeit gleichmässig auf ALLE diese Personen verteilt.
+    persons_by_role = {}
+    if acc_id is not None:
+        placed_ids = {u.person_id for u in (OrgUnit.query.join(Organization)
+                      .filter(Organization.account_id == acc_id,
+                              OrgUnit.person_id.isnot(None)).all())}
+        for p in Person.query.filter_by(account_id=acc_id).all():
+            if p.id in placed_ids:
+                for r in p.roles:
+                    persons_by_role.setdefault(r.id, []).append(p)
+
     # Bedarf je Aktivität: benötigte Funktionen/Rollen -> Namen für die Lücken-Meldung
     req_fn_ids, req_role_ids = set(), set()
     for el in tasks.values():
@@ -184,11 +197,18 @@ def analyze_bpmn(process, _seen=None):
         visit = factors.get(eid, 1.0)
         pids = [int(x) for x in (_pros(el, "positionIds") or "").split(",") if x.strip().isdigit()]
         pos = [positions[i] for i in pids if i in positions]
-        # Kostensatz: bevorzugt aus den gewählten Mitarbeitenden, sonst aus den Stellen
+        # Personen: 1) ausdrücklich gewählte Mitarbeitende; sonst 2) ALLE mit einer
+        # geforderten Rolle (gleichmässig verteilt); sonst 3) die Inhaber:innen der
+        # gewählten Stellen.
         prsids = [int(x) for x in (_pros(el, "personIds") or "").split(",") if x.strip().isdigit()]
         persons = [persons_by_id[i] for i in prsids if i in persons_by_id]
         if not persons:
-            persons = [p.person for p in pos if p.person]
+            rids = [int(x) for x in (_pros(el, "roleIds") or "").split(",") if x.strip().isdigit()]
+            by_role = {}
+            for rid in rids:
+                for pp in persons_by_role.get(rid, []):
+                    by_role[pp.id] = pp
+            persons = list(by_role.values()) or [p.person for p in pos if p.person]
         rate = (sum(_minute_cost(pp) for pp in persons) / len(persons)) if persons else 0.0
 
         raw_cost = effort * rate

@@ -239,6 +239,39 @@ def test_coverage_gap_flags_missing_function(app):
         assert a2["gaps"] == []                            # Lücke geschlossen
 
 
+def test_distributes_by_role_all_holders(app):
+    """Fordert eine Aktivität eine Rolle (ohne konkrete Person), zählen ALLE
+    Personen mit dieser Rolle, die eine Stelle besetzen."""
+    from app.models import db, Account, Organization, OrgUnit, Person, Role, Process
+    with app.app_context():
+        acc = Account(name="R"); db.session.add(acc); db.session.flush()
+        org = Organization(name="O", account_id=acc.id); db.session.add(org); db.session.flush()
+        role = Role(name="Staatsanwalt", account_id=acc.id); db.session.add(role); db.session.flush()
+        p1 = Person(name="SA1", account_id=acc.id, organization_id=org.id, fte=1.0, annual_salary=1)
+        p2 = Person(name="SA2", account_id=acc.id, organization_id=org.id, fte=1.0, annual_salary=1)
+        p3 = Person(name="Ohne", account_id=acc.id, organization_id=org.id, fte=1.0, annual_salary=1)
+        p1.roles = [role]; p2.roles = [role]        # p3 hat die Rolle NICHT
+        db.session.add_all([p1, p2, p3]); db.session.flush()
+        # p1/p2 besetzen eine Stelle; ein role-Träger ohne Stelle zählt nicht
+        db.session.add_all([
+            OrgUnit(organization_id=org.id, name="S1", unit_type="Stelle", person_id=p1.id),
+            OrgUnit(organization_id=org.id, name="S2", unit_type="Stelle", person_id=p2.id),
+        ]); db.session.flush()
+        xml = (
+            '<?xml version="1.0"?><bpmn:definitions '
+            'xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" '
+            'xmlns:pros="http://ditwi.ch/bpmn/pros" id="D" targetNamespace="x">'
+            '<bpmn:process id="P"><bpmn:startEvent id="s0"/>'
+            f'<bpmn:task id="A" name="A" pros:effortMinutes="10" pros:roleIds="{role.id}"/>'
+            '<bpmn:sequenceFlow id="f" sourceRef="s0" targetRef="A"/>'
+            '</bpmn:process></bpmn:definitions>'
+        )
+        proc = Process(name="P", account_id=acc.id, bpmn_xml=xml)
+        db.session.add(proc); db.session.commit()
+        a = analyze_bpmn(proc)["activities"][0]
+        assert {p["name"] for p in a["persons"]} == {"SA1", "SA2"}
+
+
 def test_cost_prefers_selected_person(app):
     """Sind konkrete Mitarbeitende gewählt (personIds), zählt deren Kostensatz."""
     from app.models import db, Account, Organization, OrgUnit, Person, Process
