@@ -132,16 +132,26 @@ def organization_import():
             return redirect(url_for("organization.organization_import"))
 
         from app.services.import_service import import_model
+        from app.services.dedup_service import merge_duplicates
         try:
             c = import_model(_acc(), data)
+            # Nach jedem Import gleichnamige Rollen/Funktionen zusammenführen, damit
+            # mehrfacher Import keine ID-Dubletten (und damit falsche Deckungslücken)
+            # hinterlässt. Organisationen/Personen bleiben additiv.
+            m = merge_duplicates(_acc())
         except Exception as exc:  # noqa: BLE001 – Ursache sichtbar machen statt 500
             db.session.rollback()
             current_app.logger.exception("Organisation-Import fehlgeschlagen")
             flash(f"Import fehlgeschlagen: {exc}", "error")
             return redirect(url_for("organization.organization_import"))
 
-        flash(f"Import erfolgreich: {c['organizations']} Organisation(en), {c['units']} Einheiten/Stellen, "
-              f"{c['roles']} Rollen, {c['functions']} Funktionen, {c['persons']} Personen.", "success")
+        msg = (f"Import erfolgreich: {c['organizations']} Organisation(en), "
+               f"{c['units']} Einheiten/Stellen, {c['roles']} Rollen, "
+               f"{c['functions']} Funktionen, {c['persons']} Personen.")
+        if m["functions_merged"] or m["roles_merged"]:
+            msg += (f" Automatisch bereinigt: {m['functions_merged']} doppelte "
+                    f"Funktion(en), {m['roles_merged']} doppelte Rolle(n).")
+        flash(msg, "success")
         return redirect(url_for("organization.organization"))
 
     return render_template("organization_import.html")

@@ -19,6 +19,27 @@ def test_import_route_urlencoded(app, client):
         assert Organization.query.filter_by(name="Importierte Org").first() is not None
 
 
+def test_import_route_auto_merges_duplicates(app, client):
+    """Nach jedem Import werden gleichnamige Rollen/Funktionen automatisch
+    zusammengeführt – zweimaliger Import erzeugt keine Katalog-Dubletten."""
+    make_account_with_role(app, ACCOUNT_ADMIN_ROLE, TEMPLATE_ROLES[ACCOUNT_ADMIN_ROLE],
+                           email="imp2@test.ch")
+    login(client, "imp2@test.ch")
+    data = {"organizations": [{"id": 1, "name": "Org", "description": None, "units": []}],
+            "roles": [{"id": 10, "name": "Jurist", "parent_id": None, "function_ids": [100]}],
+            "functions": [{"id": 100, "name": "Prüfen", "description": None}],
+            "persons": []}
+    for _ in range(2):
+        r = client.post("/organization/import", data={"json": json.dumps(data)},
+                        follow_redirects=True)
+        assert r.status_code == 200
+    with app.app_context():
+        from app.models import Function, Role, Account
+        acc = Account.query.filter_by(name="TestAcc").first()
+        assert Function.query.filter_by(account_id=acc.id, name="Prüfen").count() == 1
+        assert Role.query.filter_by(account_id=acc.id, name="Jurist").count() == 1
+
+
 def test_export_import_roundtrip(app):
     from app.models import db, Account, Organization, OrgUnit, Role, Function, Person
     from app.services.export_service import build_model_export
