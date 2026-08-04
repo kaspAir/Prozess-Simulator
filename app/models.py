@@ -78,6 +78,10 @@ class Process(db.Model):
     # Node/Edge-Modell; die Simulation liest es erst in Phase 2 (Mapping).
     bpmn_xml = db.Column(db.Text, nullable=True)
 
+    # Mengengerüst (Fälle/Jahr) für die prozessübergreifende Auslastung; auf der
+    # Auslastungs-Seite gepflegt, vom Dashboard gelesen.
+    annual_cases = db.Column(db.Float, nullable=False, default=0)
+
     parent = db.relationship("Process", remote_side=[id], backref="subprocesses")
     nodes = db.relationship("Node", back_populates="process", foreign_keys="Node.process_id")
     owner_org_unit_id = db.Column(db.Integer, db.ForeignKey("org_units.id"), nullable=True)

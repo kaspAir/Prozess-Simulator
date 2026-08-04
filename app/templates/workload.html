@@ -11,15 +11,16 @@
   </p>
 
   {% if processes %}
-  <form method="get" class="form-card">
+  <form method="post" class="form-card">
     <h3 style="margin-top:0;">Mengengerüst (Fälle pro Jahr)</h3>
+    <p class="small">Wird gespeichert und auch im Dashboard verwendet.</p>
     {% for p in processes %}
     <label class="ta-field">{{ p.name }}
       <input type="number" name="v_{{ p.id }}" min="0" step="1"
              value="{{ volumes.get(p.id, '')|default('', true) }}" placeholder="z. B. 5000">
     </label>
     {% endfor %}
-    <button type="submit" class="button">Auslastung berechnen</button>
+    <button type="submit" class="button">Speichern &amp; berechnen</button>
   </form>
   {% else %}
   <p>Es sind noch keine (Einstiegs-)Prozesse mit BPMN-Modell vorhanden.</p>

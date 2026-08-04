@@ -95,7 +95,7 @@ def test_dashboard_shows_bpmn_summary(app, client):
     pid = _admin_with_process(app, client)
     client.post(f"/api/process/{pid}/bpmn", json={"xml": TASK_XML})
     html = client.get("/dashboard").get_data(as_text=True)
-    assert "BPMN – Aufwand" in html
+    assert "Aufwand &amp; Kosten je Prozess" in html
     assert "BPMN Prozess" in html
 
 

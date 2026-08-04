@@ -54,12 +54,26 @@ def ensure_process_bpmn_column():
         db.session.commit()
 
 
+def ensure_process_annual_cases_column():
+    """Ergaenzt die annual_cases-Spalte in processes (datenerhaltend)."""
+    insp = inspect(db.engine)
+    if "processes" not in set(insp.get_table_names()):
+        return
+    cols = [c["name"] for c in insp.get_columns("processes")]
+    if "annual_cases" not in cols:
+        db.session.execute(text(
+            "ALTER TABLE processes ADD COLUMN annual_cases FLOAT NOT NULL DEFAULT 0"))
+        print("  + Spalte annual_cases zu processes ergaenzt")
+        db.session.commit()
+
+
 def run():
     app = create_app()
     with app.app_context():
         db.create_all()
         ensure_account_columns()
         ensure_process_bpmn_column()
+        ensure_process_annual_cases_column()
 
         # 1) Bootstrap-Account
         account = Account.query.first()

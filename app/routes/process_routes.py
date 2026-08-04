@@ -132,18 +132,20 @@ def api_bpmn_save(process_id):
     return jsonify({"ok": True})
 
 
-@process_bp.route("/workload")
+@process_bp.route("/workload", methods=["GET", "POST"])
 def workload():
     """Prozessübergreifende Personen-Auslastung: je Person die Belastung über alle
-    Einstiegsprozesse (inkl. Subprozesse) bei gewähltem Mengengerüst je Prozess."""
+    Einstiegsprozesse (inkl. Subprozesse) beim gespeicherten Mengengerüst je Prozess.
+    POST speichert das Mengengerüst (Fälle/Jahr) je Prozess."""
     from app.services.workload_service import entry_processes, cross_process_workload
     acc = current_account_id()
     procs = entry_processes(acc)
-    volumes = {}
-    for p in procs:
-        v = request.args.get("v_%d" % p.id, type=float)
-        if v and v > 0:
-            volumes[p.id] = v
+    if request.method == "POST":
+        for p in procs:
+            v = request.form.get("v_%d" % p.id, type=float)
+            p.annual_cases = v if (v and v > 0) else 0
+        db.session.commit()
+    volumes = {p.id: p.annual_cases for p in procs if (p.annual_cases or 0) > 0}
     result = cross_process_workload(acc, volumes) if volumes else None
     return render_template("workload.html", processes=procs, volumes=volumes, result=result)
 

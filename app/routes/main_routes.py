@@ -3,7 +3,7 @@ import os
 from datetime import datetime, timezone
 
 from flask import (
-    Blueprint, redirect, url_for, render_template, request, session, jsonify,
+    Blueprint, redirect, url_for, render_template, jsonify,
     send_file, flash, current_app, Response,
 )
 from flask_login import current_user
@@ -11,11 +11,6 @@ from sqlalchemy import text
 
 from app.models import Process, db
 from app.version import APP_VERSION
-from app.dashboard import (
-    dashboard_for_process,
-    operational_dashboard_for_process,
-    PERIOD_LABELS,
-)
 from app.auth.permissions import P_DASHBOARD_VIEW, P_ACCOUNT_MEMBERS
 from app.auth.service import require_permission, current_account_id
 
@@ -106,46 +101,18 @@ def dashboard():
     if account_id is None:
         if current_user.is_super_admin:
             return redirect(url_for("admin.accounts"))
-        return render_template(
-            "dashboard.html", dashboard_items=[], operational_items={},
-            op_cases=80, op_period="day", op_period_label="Tag", active_tab="strategic",
-        )
+        return render_template("dashboard.html", workload=None, bpmn_summaries=[])
     processes = Process.query.filter_by(account_id=account_id).order_by(Process.id).all()
 
-    active_tab = request.args.get("tab")
-    if active_tab:
-        session["dashboard_active_tab"] = active_tab
-    else:
-        active_tab = session.get("dashboard_active_tab", "strategic")
+    from app.services.bpmn_simulation import analyze_bpmn
+    from app.services.workload_service import cross_process_workload
 
-    op_cases_arg = request.args.get("op_cases", type=float)
-    if op_cases_arg is not None:
-        op_cases = op_cases_arg
-        session["dashboard_op_cases"] = op_cases
-    else:
-        op_cases = session.get("dashboard_op_cases", 80)
-
-    op_period_arg = request.args.get("op_period")
-    if op_period_arg:
-        op_period = op_period_arg
-        session["dashboard_op_period"] = op_period
-    else:
-        op_period = session.get("dashboard_op_period", "day")
-
-    op_period_label = PERIOD_LABELS.get(op_period, "Tag")
-
-    dashboard_items = [
-        dashboard_for_process(process)
-        for process in processes
-    ]
-
-    operational_items = {
-        process.id: operational_dashboard_for_process(process, op_cases, op_period)
-        for process in processes
-    }
+    # Strategische Engpass-Sicht: prozessübergreifende Personen-Auslastung aus dem
+    # gespeicherten Mengengerüst (BPMN-Modell). Ohne Mengengerüst leer.
+    volumes = {p.id: p.annual_cases for p in processes if (p.annual_cases or 0) > 0}
+    workload = cross_process_workload(account_id, volumes) if volumes else None
 
     # BPMN-Kostenübersicht (Aufwand/Kosten je Prozess aus dem BPMN-Modell)
-    from app.services.bpmn_simulation import analyze_bpmn
     bpmn_summaries = []
     for process in processes:
         a = analyze_bpmn(process)
@@ -157,13 +124,4 @@ def dashboard():
                 "total_cost": a["total_cost"], "expected_cost": a["expected_cost"],
             })
 
-    return render_template(
-        "dashboard.html",
-        dashboard_items=dashboard_items,
-        operational_items=operational_items,
-        op_cases=op_cases,
-        op_period=op_period,
-        op_period_label=op_period_label,
-        active_tab=active_tab,
-        bpmn_summaries=bpmn_summaries,
-    )
+    return render_template("dashboard.html", workload=workload, bpmn_summaries=bpmn_summaries)
