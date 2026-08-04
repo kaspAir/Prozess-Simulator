@@ -1,4 +1,6 @@
-from flask import Blueprint, render_template, request, redirect, url_for, jsonify, abort, Response
+from flask import (
+    Blueprint, render_template, request, redirect, url_for, jsonify, abort, Response, flash,
+)
 from flask_login import current_user
 
 from app.models import db, Role, Function, Process, Node, Edge, OrgUnit, Organization
@@ -97,6 +99,23 @@ def api_bpmn_get(process_id):
     # ohne Export/Import), sonst leere Startvorlage für ganz neue Prozesse.
     xml = effective_bpmn(process) or DEFAULT_BPMN.format(pid=process.id)
     return Response(xml, mimetype="application/xml")
+
+
+@process_bp.route("/process/<int:process_id>/bpmn/from-nodes", methods=["POST"])
+def bpmn_from_nodes(process_id):
+    """Erzeugt das BPMN-Modell (neu) aus dem alten Node-Modell und speichert es –
+    überschreibt ein vorhandenes BPMN. Danach öffnet der BPMN-Editor das Ergebnis."""
+    process = Process.query.get_or_404(process_id)
+    from app.services.node_to_bpmn import node_to_bpmn
+    if not process.nodes:
+        flash("Dieser Prozess hat kein Node-Modell, aus dem ein BPMN erzeugt werden könnte.",
+              "error")
+        return redirect(url_for("process.process_graph", process_id=process.id))
+    process.bpmn_xml = node_to_bpmn(process)
+    db.session.add(process)
+    db.session.commit()
+    flash("BPMN-Modell aus dem Node-Modell erzeugt.", "success")
+    return redirect(url_for("process.bpmn_editor", process_id=process.id))
 
 
 @process_bp.route("/api/process/<int:process_id>/bpmn", methods=["POST"])
