@@ -167,15 +167,15 @@ def peak():
     acc = current_account_id()
     procs = [p for p in entry_processes(acc) if (p.annual_cases or 0) > 0]
     peak_id = request.args.get("peak", type=int)
-    factor = request.args.get("factor", type=float)
+    cases = request.args.get("cases", type=float)
     days = request.args.get("days", type=int)
     frist = request.args.get("frist") == "1"
     result = None
-    if peak_id and factor and factor > 0 and days and days > 0:
-        result = peak_workload(acc, peak_id, factor, days)
+    if peak_id and cases and cases > 0 and days and days > 0:
+        result = peak_workload(acc, peak_id, cases, days)
     peak_name = next((p.name for p in procs if p.id == peak_id), None)
     return render_template("peak.html", processes=procs, result=result,
-                           peak_id=peak_id, factor=factor, days=days, frist=frist,
+                           peak_id=peak_id, cases=cases, days=days, frist=frist,
                            peak_name=peak_name)
 
 

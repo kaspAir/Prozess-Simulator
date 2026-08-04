@@ -125,44 +125,70 @@ def cross_process_workload(account_id, volumes, capacity_per_fte=ANNUAL_WORKING_
         need_r = needed_role.get(r["id"]) or set()
         if not need_f and not need_r:
             continue
+        # Priorität, die wir schützen: die höchste (= kleinste Zahl) unter den
+        # Prozessen, in denen die überlastete Person steckt.
+        target_prio = min((proc_meta[pid]["priority"]
+                           for pid in per_process.get(r["id"], {})), default=2)
         cands = []
         for p in all_persons:
             if p.id == r["id"] or p.id not in placed:
-                continue
-            spare = capacity_min(p) - load_min.get(p.id, 0.0)
-            if spare <= 0:
                 continue
             ov_f = covered.get(p.id, set()) & need_f
             ov_r = covered_roles.get(p.id, set()) & need_r
             if not ov_f and not ov_r:
                 continue
+            idle = max(0.0, capacity_min(p) - load_min.get(p.id, 0.0))
+            # Kapazität, die durch Zurückstellen NIEDRIGER priorer Arbeit frei würde
+            shift_min, shift_from = 0.0, []
+            for pid, mins in per_process.get(p.id, {}).items():
+                if proc_meta[pid]["priority"] > target_prio:   # niedriger prior
+                    shift_min += mins
+                    shift_from.append({"process": proc_meta[pid]["name"],
+                                       "priority_label": PRIORITY_LABELS.get(
+                                           proc_meta[pid]["priority"], "Mittel")})
+            help_min = idle + shift_min
+            if help_min <= 0:
+                continue
             covers = sorted(rname.get(i, "#%d" % i) for i in ov_r) + \
                 sorted(fname.get(i, "#%d" % i) for i in ov_f)
             cands.append({
-                "name": p.name, "spare_h": spare / 60.0,
+                "name": p.name, "spare_h": idle / 60.0, "shift_h": shift_min / 60.0,
+                "shift_from": shift_from, "help_h": help_min / 60.0,
                 "match": len(ov_f) + len(ov_r), "covers": covers,
             })
-        cands.sort(key=lambda c: (c["match"], c["spare_h"]), reverse=True)
+        cands.sort(key=lambda c: (c["match"], c["help_h"]), reverse=True)
         if cands:
-            borrow.append({"name": r["name"], "util": r["util"], "candidates": cands[:5]})
+            borrow.append({"name": r["name"], "util": r["util"],
+                           "target_prio_label": PRIORITY_LABELS.get(target_prio, "Mittel"),
+                           "candidates": cands[:5]})
 
-    return {"persons": rows, "unassigned_h": unassigned_min / 60.0, "borrow": borrow}
+    # Systemische Machbarkeit: reicht die GESAMTE Kapazität der besetzten Stellen für
+    # die Gesamtnachfrage? Wenn nein, ist die Überlast durch Umverteilen/Ausleihen
+    # allein NICHT behebbar (dann braucht es Überstunden, mehr Personal oder eine
+    # längere Frist).
+    total_demand = sum(load_min.values()) + unassigned_min
+    total_capacity = sum(capacity_min(p) for p in all_persons if p.id in placed)
+    deficit = max(0.0, total_demand - total_capacity)
+
+    return {"persons": rows, "unassigned_h": unassigned_min / 60.0, "borrow": borrow,
+            "total_demand_h": total_demand / 60.0, "total_capacity_h": total_capacity / 60.0,
+            "deficit_h": deficit / 60.0, "feasible": total_demand <= total_capacity}
 
 
-def peak_workload(account_id, peak_process_id, factor, days):
+def peak_workload(account_id, peak_process_id, peak_cases, days):
     """Lastperiode («Peak»): Fenster von `days` Arbeitstagen; im gewählten Prozess
-    wird die Fallzahl mit `factor` multipliziert, die übrigen laufen normal weiter.
-    Auslastung je Person IN DER PERIODE (gegen die Fenster-Kapazität) – so wird ein
-    temporärer Peak sichtbar, den der Jahresschnitt verschluckt."""
+    werden `peak_cases` Durchläufe in der Periode angenommen (absolute Zahl), die
+    übrigen Prozesse laufen mit ihrem normalen Tagespensum weiter. Auslastung je
+    Person IN DER PERIODE (gegen die Fenster-Kapazität) – so wird ein temporärer
+    Peak sichtbar, den der Jahresschnitt verschluckt."""
     days = max(1, days)
     window_volumes = {}
     for pr in Process.query.filter_by(account_id=account_id).all():
         annual = pr.annual_cases or 0
-        if annual <= 0:
-            continue
-        per_day = annual / WORKING_DAYS_PER_YEAR
-        f = factor if pr.id == peak_process_id else 1.0
-        window_volumes[pr.id] = per_day * days * f
+        if pr.id == peak_process_id:
+            window_volumes[pr.id] = max(0.0, peak_cases)
+        elif annual > 0:
+            window_volumes[pr.id] = (annual / WORKING_DAYS_PER_YEAR) * days
     window_cap = (ANNUAL_WORKING_MINUTES / WORKING_DAYS_PER_YEAR) * days
     return cross_process_workload(account_id, window_volumes, capacity_per_fte=window_cap)
 

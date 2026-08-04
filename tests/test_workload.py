@@ -98,8 +98,9 @@ def test_peak_reveals_overload_hidden_by_annual(app):
         annual = cross_process_workload(acc.id, {proc.id: 220})
         assert annual["persons"][0]["util"] < 0.2                 # jährlich entspannt
 
-        peak = peak_workload(acc.id, proc.id, 10, 1)              # ×10 an 1 Tag
+        peak = peak_workload(acc.id, proc.id, 15, 1)              # 15 Durchläufe an 1 Tag
         assert peak["persons"][0]["util"] > 1.0                   # in der Periode Engpass
+        assert peak["feasible"] is False                          # nicht durch Umverteilen deckbar
 
 
 def test_ampel_marks_overloaded_activity(app):
@@ -119,6 +120,43 @@ def test_ampel_marks_overloaded_activity(app):
         ampel = process_activity_ampel(acc.id, {proc.id: 100})   # 2000*100 min -> Engpass
         assert ampel and ampel[0]["priority_label"] == "Hoch"
         assert ampel[0]["activities"][0]["status"] == "Engpass"
+
+
+def test_borrow_priority_allows_shifting_lower_priority_work(app):
+    """Ein voll ausgelasteter Kandidat wird trotzdem vorgeschlagen, wenn seine Arbeit
+    NIEDRIGER prior ist als der zu deckende Engpass (Zurückstellen sichtbar)."""
+    from app.models import db, Account, Organization, OrgUnit, Person, Function, Process
+    from app.services.workload_service import cross_process_workload
+    with app.app_context():
+        acc = Account(name="BP"); db.session.add(acc); db.session.flush()
+        org = Organization(name="O", account_id=acc.id); db.session.add(org); db.session.flush()
+        f = Function(name="Prüfen", account_id=acc.id); db.session.add(f); db.session.flush()
+        over = Person(name="Over", account_id=acc.id, organization_id=org.id, fte=1.0, annual_salary=1)
+        helper = Person(name="Helfer", account_id=acc.id, organization_id=org.id, fte=1.0, annual_salary=1)
+        helper.functions = [f]
+        db.session.add_all([over, helper]); db.session.flush()
+        so = OrgUnit(organization_id=org.id, name="SO", unit_type="Stelle", person_id=over.id)
+        sh = OrgUnit(organization_id=org.id, name="SH", unit_type="Stelle", person_id=helper.id)
+        db.session.add_all([so, sh]); db.session.flush()
+        # Hoch-priorer Prozess, auf dem Over überlastet ist (fordert Prüfen)
+        hi_xml = (
+            '<?xml version="1.0"?><bpmn:definitions '
+            'xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" '
+            'xmlns:pros="http://ditwi.ch/bpmn/pros" id="D" targetNamespace="x">'
+            '<bpmn:process id="P"><bpmn:startEvent id="s0"/>'
+            f'<bpmn:task id="A" name="A" pros:effortMinutes="2000" '
+            f'pros:positionIds="{so.id}" pros:functionIds="{f.id}"/>'
+            '<bpmn:sequenceFlow id="x" sourceRef="s0" targetRef="A"/>'
+            '</bpmn:process></bpmn:definitions>'
+        )
+        hi = Process(name="Hoch", account_id=acc.id, priority=1, bpmn_xml=hi_xml)
+        lo = Process(name="Niedrig", account_id=acc.id, priority=3, bpmn_xml=_task_xml(70, sh.id))
+        db.session.add_all([hi, lo]); db.session.commit()
+
+        res = cross_process_workload(acc.id, {hi.id: 100, lo.id: 2000})
+        b = next(x for x in res["borrow"] if x["name"] == "Over")
+        c = next(x for x in b["candidates"] if x["name"] == "Helfer")
+        assert c["shift_h"] > 0            # kann durch Zurückstellen niedriger priorer Arbeit helfen
 
 
 def test_workload_splits_effort_among_assigned_persons(app):

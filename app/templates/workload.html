@@ -89,7 +89,7 @@
       <tbody>
       {% for c in b.candidates %}
         <tr>
-          <td>{{ c.name }}</td>
+          <td>{{ c.name }}{% if c.shift_h > 0.05 %}<div class="small">+ {{ "%.1f"|format(c.shift_h) }} h durch Zurückstellen von: {% for s in c.shift_from %}{{ s.process }} ({{ s.priority_label }}){% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}</td>
           <td>{{ "%.1f"|format(c.spare_h) }}</td>
           <td>{{ c.covers|join(", ") }}</td>
         </tr>

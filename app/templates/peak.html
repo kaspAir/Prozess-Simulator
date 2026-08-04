@@ -19,8 +19,8 @@
         {% endfor %}
       </select>
     </label>
-    <label class="ta-field">Faktor (z. B. 10 = zehnfach)
-      <input type="number" name="factor" min="1" step="0.5" value="{{ factor or 10 }}">
+    <label class="ta-field">Anzahl Durchläufe in der Periode (z. B. 800 Strafbefehle)
+      <input type="number" name="cases" min="1" step="1" value="{{ cases|round(0,'floor')|int if cases else '' }}" placeholder="z. B. 800">
     </label>
     <label class="ta-field">Dauer (Arbeitstage)
       <input type="number" name="days" min="1" step="1" value="{{ days or 2 }}">
@@ -45,6 +45,19 @@
   </p>
   {% elif frist %}
   <p style="color:#2e7d32;font-weight:600;">✓ Frist haltbar: niemand ist in der Periode über 100 %.</p>
+  {% endif %}
+  {% if not result.feasible %}
+  <p style="color:#b3261e;font-weight:600;">
+    ⚠ Überlast nicht durch Umverteilen behebbar: Die Gesamtnachfrage von
+    {{ "%.0f"|format(result.total_demand_h) }} h übersteigt die verfügbare
+    Gesamtkapazität von {{ "%.0f"|format(result.total_capacity_h) }} h um
+    <strong>{{ "%.0f"|format(result.deficit_h) }} h</strong>. Auch Ausleihen genügt
+    nicht – es braucht Überstunden, zusätzliches Personal oder eine längere Frist.
+  </p>
+  {% else %}
+  <p class="small">Nachfrage {{ "%.0f"|format(result.total_demand_h) }} h ·
+     Gesamtkapazität {{ "%.0f"|format(result.total_capacity_h) }} h – grundsätzlich
+     durch Umverteilen/Ausleihen deckbar.</p>
   {% endif %}
   {% if result.persons %}
   <table>
@@ -84,7 +97,10 @@
       <thead><tr><th>Möglicher Ausgleich</th><th>Freie Kapazität (h)</th><th>Kann übernehmen</th></tr></thead>
       <tbody>
       {% for c in b.candidates %}
-        <tr><td>{{ c.name }}</td><td>{{ "%.1f"|format(c.spare_h) }}</td><td>{{ c.covers|join(", ") }}</td></tr>
+        <tr>
+          <td>{{ c.name }}{% if c.shift_h > 0.05 %}<div class="small">+ {{ "%.1f"|format(c.shift_h) }} h durch Zurückstellen von: {% for s in c.shift_from %}{{ s.process }} ({{ s.priority_label }}){% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}</td>
+          <td>{{ "%.1f"|format(c.spare_h) }}</td><td>{{ c.covers|join(", ") }}</td>
+        </tr>
       {% endfor %}
       </tbody>
     </table>
