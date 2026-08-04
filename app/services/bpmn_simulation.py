@@ -12,7 +12,7 @@ Deterministisch; das (nutzererstellte) BPMN-XML wird XXE-sicher mit defusedxml g
 """
 import defusedxml.ElementTree as DET
 
-from app.models import OrgUnit, Organization, Person, Process
+from app.models import OrgUnit, Organization, Person, Process, Role, Function
 
 BPMN_NS = "http://www.omg.org/spec/BPMN/20100524/MODEL"
 PROS_NS = "http://ditwi.ch/bpmn/pros"
@@ -155,6 +155,27 @@ def analyze_bpmn(process, _seen=None):
             pq = pq.filter(Person.account_id == acc_id)
         persons_by_id = {p.id: p for p in pq.all()}
 
+    # Bedarf je Aktivität: benötigte Funktionen/Rollen -> Namen für die Lücken-Meldung
+    req_fn_ids, req_role_ids = set(), set()
+    for el in tasks.values():
+        for x in (_pros(el, "functionIds") or "").split(","):
+            if x.strip().isdigit():
+                req_fn_ids.add(int(x))
+        for x in (_pros(el, "roleIds") or "").split(","):
+            if x.strip().isdigit():
+                req_role_ids.add(int(x))
+    fn_name, role_name = {}, {}
+    if req_fn_ids:
+        fq = Function.query.filter(Function.id.in_(req_fn_ids))
+        if acc_id is not None:
+            fq = fq.filter(Function.account_id == acc_id)
+        fn_name = {f.id: f.name for f in fq.all()}
+    if req_role_ids:
+        rq = Role.query.filter(Role.id.in_(req_role_ids))
+        if acc_id is not None:
+            rq = rq.filter(Role.account_id == acc_id)
+        role_name = {r.id: r.name for r in rq.all()}
+
     activities = []
     tot_e = exp_e = tot_c = exp_c = 0.0
     for eid, el in tasks.items():
@@ -174,12 +195,32 @@ def analyze_bpmn(process, _seen=None):
         exp_effort = effort * visit
         exp_cost = exp_effort * rate
 
+        # Deckung: Halten die zugeordneten Personen die benötigten Funktionen/Rollen?
+        req_f = [int(x) for x in (_pros(el, "functionIds") or "").split(",") if x.strip().isdigit()]
+        req_r = [int(x) for x in (_pros(el, "roleIds") or "").split(",") if x.strip().isdigit()]
+        covered_f, covered_r = set(), set()
+        for pp in persons:
+            covered_r.update(r.id for r in pp.roles)
+            covered_f.update(f.id for f in pp.functions)
+            for r in pp.roles:
+                covered_f.update(f.id for f in r.functions)
+        gaps = []
+        if (req_f or req_r) and not persons:
+            gaps.append("keine Person zugeordnet")
+        for fid in req_f:
+            if fid not in covered_f:
+                gaps.append("Funktion nicht abgedeckt: " + (fn_name.get(fid) or ("#%d" % fid)))
+        for rid in req_r:
+            if rid not in covered_r:
+                gaps.append("Rolle nicht abgedeckt: " + (role_name.get(rid) or ("#%d" % rid)))
+
         activities.append({
             "id": eid, "name": name, "effort": effort, "visit_factor": visit,
             "raw_cost": raw_cost, "expected_effort": exp_effort, "expected_cost": exp_cost,
             "rate_per_min": rate,
             "legal_basis": _pros(el, "legalBasis") or "",
             "positions": sorted({p.name for p in pos}),   # gleiche Namen nur einmal
+            "gaps": gaps,
         })
         tot_e += effort
         exp_e += exp_effort

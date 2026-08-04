@@ -151,7 +151,7 @@
     <table id="ana-table">
       <thead><tr>
         <th>Aktivität</th><th>Aufwand (Min.)</th><th>Faktor</th>
-        <th>Erw. Aufwand (Min.)</th><th>Kosten (CHF)</th><th>Erw. Kosten (CHF)</th><th>Stellen</th>
+        <th>Erw. Aufwand (Min.)</th><th>Kosten (CHF)</th><th>Erw. Kosten (CHF)</th><th>Stellen</th><th>Deckung</th>
       </tr></thead>
       <tbody id="ana-body"></tbody>
     </table>
@@ -592,6 +592,11 @@
          fmt(a.expected_effort), fmt(a.raw_cost), fmt(a.expected_cost),
          (a.positions || []).join(", ")]
           .forEach((v) => { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); });
+        const gd = document.createElement("td");
+        const gaps = a.gaps || [];
+        if (gaps.length) { gd.textContent = "⚠ " + gaps.join("; "); gd.style.color = "#b3261e"; }
+        else { gd.textContent = "✓"; gd.style.color = "#2e7d32"; }
+        tr.appendChild(gd);
         anaBody.appendChild(tr);
       });
       anaBox.hidden = false;

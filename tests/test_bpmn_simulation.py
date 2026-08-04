@@ -201,6 +201,44 @@ def test_subprocess_nested_and_cycle_safe(app):
         assert abs(res["total_effort"] - 35) < 1e-6     # A + B + C, jeder einmal
 
 
+def test_coverage_gap_flags_missing_function(app):
+    """Punkt 1: hat die zugeordnete Person die benötigte Funktion nicht, wird eine
+    Lücke gemeldet; hat sie sie, verschwindet die Lücke."""
+    from app.models import db, Account, Organization, OrgUnit, Person, Function, Process
+    with app.app_context():
+        acc = Account(name="AccCov"); db.session.add(acc); db.session.flush()
+        org = Organization(name="O", account_id=acc.id); db.session.add(org); db.session.flush()
+        f_need = Function(name="Prüfen", account_id=acc.id)
+        f_have = Function(name="Tippen", account_id=acc.id)
+        db.session.add_all([f_need, f_have]); db.session.flush()
+        person = Person(name="P", account_id=acc.id, organization_id=org.id,
+                        fte=1.0, annual_salary=126000)
+        person.functions = [f_have]                      # hat NICHT «Prüfen»
+        db.session.add(person); db.session.flush()
+        pos = OrgUnit(organization_id=org.id, name="Stelle", unit_type="Stelle",
+                      person_id=person.id)
+        db.session.add(pos); db.session.flush()
+        xml = (
+            '<?xml version="1.0"?><bpmn:definitions '
+            'xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" '
+            'xmlns:pros="http://ditwi.ch/bpmn/pros" id="D" targetNamespace="x">'
+            '<bpmn:process id="P"><bpmn:startEvent id="s0"/>'
+            f'<bpmn:task id="A" name="A" pros:effortMinutes="10" '
+            f'pros:positionIds="{pos.id}" pros:functionIds="{f_need.id}"/>'
+            '<bpmn:sequenceFlow id="f" sourceRef="s0" targetRef="A"/>'
+            '</bpmn:process></bpmn:definitions>'
+        )
+        proc = Process(name="Pr", account_id=acc.id, bpmn_xml=xml)
+        db.session.add(proc); db.session.commit()
+
+        a = analyze_bpmn(proc)["activities"][0]
+        assert any("Prüfen" in g for g in a["gaps"])       # Lücke gemeldet
+
+        person.functions = [f_have, f_need]; db.session.commit()
+        a2 = analyze_bpmn(proc)["activities"][0]
+        assert a2["gaps"] == []                            # Lücke geschlossen
+
+
 def test_cost_prefers_selected_person(app):
     """Sind konkrete Mitarbeitende gewählt (personIds), zählt deren Kostensatz."""
     from app.models import db, Account, Organization, OrgUnit, Person, Process
