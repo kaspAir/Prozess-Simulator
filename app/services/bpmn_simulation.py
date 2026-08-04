@@ -64,7 +64,10 @@ def _empty():
 
 
 def analyze_bpmn(process):
-    xml = (getattr(process, "bpmn_xml", None) or "").strip()
+    from app.services.node_to_bpmn import effective_bpmn
+    # Gespeichertes BPMN, sonst aus dem Node-Modell erzeugt – damit die Kosten-
+    # Analyse bestehende Prozesse ohne Export/Import mitrechnet (wie der Editor).
+    xml = effective_bpmn(process).strip()
     if not xml:
         return _empty()
     try:

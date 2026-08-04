@@ -67,6 +67,27 @@ def test_cost_from_assigned_position(app):
         assert res["activities"][0]["positions"] == ["Stelle"]
 
 
+def test_analyze_falls_back_to_node_model(app):
+    """Prozess ohne gespeichertes BPMN, aber mit Node-Modell -> Analyse rechnet
+    (der Generator springt ein, wie im Editor)."""
+    from app.models import db, Account, Process, Node, Edge
+    with app.app_context():
+        acc = Account(name="AccN"); db.session.add(acc); db.session.flush()
+        proc = Process(name="NodeProc", account_id=acc.id)      # kein bpmn_xml
+        db.session.add(proc); db.session.flush()
+        n1 = Node(process_id=proc.id, type="start", name="Start", x=50, y=50, sort_order=0)
+        n2 = Node(process_id=proc.id, type="task", name="T", effort_minutes=25,
+                  x=180, y=50, sort_order=1)
+        n3 = Node(process_id=proc.id, type="end", name="Ende", x=320, y=50, sort_order=2)
+        db.session.add_all([n1, n2, n3]); db.session.flush()
+        db.session.add_all([Edge(source_node_id=n1.id, target_node_id=n2.id),
+                            Edge(source_node_id=n2.id, target_node_id=n3.id)])
+        db.session.commit()
+        res = analyze_bpmn(proc)
+        assert res["has_model"]
+        assert abs(res["total_effort"] - 25) < 1e-6
+
+
 def test_cost_prefers_selected_person(app):
     """Sind konkrete Mitarbeitende gewählt (personIds), zählt deren Kostensatz."""
     from app.models import db, Account, Organization, OrgUnit, Person, Process

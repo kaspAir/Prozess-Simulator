@@ -92,7 +92,10 @@ def bpmn_editor(process_id):
 @process_bp.route("/api/process/<int:process_id>/bpmn", methods=["GET"])
 def api_bpmn_get(process_id):
     process = Process.query.get_or_404(process_id)
-    xml = process.bpmn_xml or DEFAULT_BPMN.format(pid=process.id)
+    from app.services.node_to_bpmn import effective_bpmn
+    # Gespeichertes BPMN, sonst aus dem alten Node-Modell erzeugt (Migration
+    # ohne Export/Import), sonst leere Startvorlage für ganz neue Prozesse.
+    xml = effective_bpmn(process) or DEFAULT_BPMN.format(pid=process.id)
     return Response(xml, mimetype="application/xml")
 
 

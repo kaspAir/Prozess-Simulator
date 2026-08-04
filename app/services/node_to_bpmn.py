@@ -33,6 +33,18 @@ def _kind(node):
     return _KIND.get(node.type, _KIND["task"])
 
 
+def effective_bpmn(process):
+    """Führendes BPMN-XML eines Prozesses: das gespeicherte, sonst aus dem
+    Node-Modell erzeugte. Ohne gespeichertes XML und ohne Nodes: leerer String
+    (der Aufrufer entscheidet dann über einen Fallback)."""
+    xml = (getattr(process, "bpmn_xml", None) or "").strip()
+    if xml:
+        return xml
+    if getattr(process, "nodes", None):
+        return node_to_bpmn(process)
+    return ""
+
+
 def node_to_bpmn(process):
     """Erzeugt BPMN-2.0-XML für einen Prozess aus seinen Nodes/Edges."""
     nodes = sorted(process.nodes, key=lambda n: (n.sort_order, n.id))
