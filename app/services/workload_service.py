@@ -12,7 +12,7 @@ Deterministisch, kein LLM.
 """
 import re
 
-from app.models import Process, Person, Function, Role
+from app.models import Process, Person, Function, Role, OrgUnit, Organization
 from app.services.bpmn_simulation import analyze_bpmn, ANNUAL_WORKING_MINUTES
 from app.services.node_to_bpmn import effective_bpmn
 
@@ -64,6 +64,10 @@ def cross_process_workload(account_id, volumes):
     all_persons = Person.query.filter_by(account_id=account_id).all()
     covered = {p.id: _covered_functions(p) for p in all_persons}
     covered_roles = {p.id: {r.id for r in p.roles} for p in all_persons}
+    # Nur Personen, die tatsächlich eine Stelle besetzen, kommen als Aushilfe infrage
+    # (Personen ohne Stelle im Organigramm werden nicht als «frei» vorgeschlagen).
+    placed = {u.person_id for u in (OrgUnit.query.join(Organization)
+              .filter(Organization.account_id == account_id, OrgUnit.person_id.isnot(None)).all())}
 
     def capacity_min(p):
         return (p.fte if p.fte is not None else 1.0) * ANNUAL_WORKING_MINUTES
@@ -97,7 +101,7 @@ def cross_process_workload(account_id, volumes):
             continue
         cands = []
         for p in all_persons:
-            if p.id == r["id"]:
+            if p.id == r["id"] or p.id not in placed:
                 continue
             spare = capacity_min(p) - load_min.get(p.id, 0.0)
             if spare <= 0:

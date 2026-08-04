@@ -148,9 +148,10 @@ def organization_import():
         msg = (f"Import erfolgreich: {c['organizations']} Organisation(en), "
                f"{c['units']} Einheiten/Stellen, {c['roles']} Rollen, "
                f"{c['functions']} Funktionen, {c['persons']} Personen.")
-        if m["functions_merged"] or m["roles_merged"]:
+        if m["functions_merged"] or m["roles_merged"] or m["persons_merged"]:
             msg += (f" Automatisch bereinigt: {m['functions_merged']} doppelte "
-                    f"Funktion(en), {m['roles_merged']} doppelte Rolle(n).")
+                    f"Funktion(en), {m['roles_merged']} doppelte Rolle(n), "
+                    f"{m['persons_merged']} doppelte Person(en).")
         flash(msg, "success")
         return redirect(url_for("organization.organization"))
 
@@ -163,11 +164,12 @@ def merge_duplicates():
     hängt alle Verweise inkl. BPMN um."""
     from app.services.dedup_service import merge_duplicates as _merge
     c = _merge(_acc())
-    if c["functions_merged"] or c["roles_merged"]:
-        flash(f"Bereinigt: {c['functions_merged']} doppelte Funktion(en) und "
-              f"{c['roles_merged']} doppelte Rolle(n) zusammengeführt.", "success")
+    if c["functions_merged"] or c["roles_merged"] or c["persons_merged"]:
+        flash(f"Bereinigt: {c['functions_merged']} doppelte Funktion(en), "
+              f"{c['roles_merged']} doppelte Rolle(n) und {c['persons_merged']} doppelte "
+              f"Person(en) zusammengeführt.", "success")
     else:
-        flash("Keine doppelten Rollen oder Funktionen gefunden.", "success")
+        flash("Keine doppelten Rollen, Funktionen oder Personen gefunden.", "success")
     return redirect(url_for("organization.organization"))
 
 

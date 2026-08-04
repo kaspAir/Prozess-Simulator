@@ -55,7 +55,10 @@ def test_borrow_suggests_qualified_person_with_spare_capacity(app):
         db.session.add_all([overloaded, helper]); db.session.flush()
         pos = OrgUnit(organization_id=org.id, name="Stelle", unit_type="Stelle",
                       person_id=overloaded.id)
-        db.session.add(pos); db.session.flush()
+        # die Aushilfe muss ebenfalls eine Stelle besetzen, um vorgeschlagen zu werden
+        hpos = OrgUnit(organization_id=org.id, name="Helferstelle", unit_type="Stelle",
+                       person_id=helper.id)
+        db.session.add_all([pos, hpos]); db.session.flush()
         xml = (
             '<?xml version="1.0"?><bpmn:definitions '
             'xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" '
