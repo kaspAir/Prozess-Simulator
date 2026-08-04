@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET  # nosec B405
 from datetime import datetime, timezone
 
 from app.models import Organization, OrgUnit, Role, Function, Person, Process
+from app.services.node_to_bpmn import node_to_bpmn
 from app.version import APP_VERSION
 
 
@@ -94,6 +95,8 @@ def build_model_export(account_id):
             "id": pr.id, "name": pr.name,
             "parent_process_id": pr.parent_process_id,
             "owner_org_unit_id": pr.owner_org_unit_id,
+            # BPMN ist das führende Modell: vorhandenes XML, sonst aus Node/Edge erzeugt.
+            "bpmn_xml": (pr.bpmn_xml or "").strip() or node_to_bpmn(pr),
             "nodes": [_node(n) for n in sorted(pr.nodes, key=lambda n: (n.sort_order, n.id))],
             "edges": _edges_of(pr),
         } for pr in processes],

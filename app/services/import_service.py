@@ -4,12 +4,14 @@ Legt Organisationen, Einheiten (inkl. Stellen), Rollen, Funktionen und Personen
 neu an und bildet die IDs aus dem Export auf die neu erzeugten Datensätze ab
 (Relationen bleiben erhalten). Prozesse/BPMN werden NICHT importiert.
 """
-from app.models import db, Organization, OrgUnit, Role, Function, Person
+from app.models import db, Organization, OrgUnit, Role, Function, Person, Process
+from app.services.bpmn_remap import remap_pros_ids
 
 
 def import_model(account_id, data):
     func_obj, role_obj, org_obj, person_obj, unit_obj = {}, {}, {}, {}, {}
-    counts = {"functions": 0, "roles": 0, "organizations": 0, "persons": 0, "units": 0}
+    counts = {"functions": 0, "roles": 0, "organizations": 0, "persons": 0,
+              "units": 0, "processes": 0}
 
     # 1) Funktionen
     for f in data.get("functions", []):
@@ -74,6 +76,38 @@ def import_model(account_id, data):
             pid = u.get("parent_id")
             if pid in unit_obj:
                 unit_obj[u.get("id")].parent_id = unit_obj[pid].id
+    db.session.flush()
+
+    # 6) Prozesse (BPMN ist das führende Modell). Zwei Durchgänge wegen
+    #    parent_process- und subprocess-Selbstbezügen. IDs in den pros:-Feldern
+    #    werden auf die neu erzeugten Datensätze umgeschrieben.
+    id_map = {
+        "func": {old: o.id for old, o in func_obj.items()},
+        "role": {old: o.id for old, o in role_obj.items()},
+        "unit": {old: o.id for old, o in unit_obj.items()},
+        "person": {old: o.id for old, o in person_obj.items()},
+        "org": {old: o.id for old, o in org_obj.items()},
+    }
+    proc_obj = {}
+    for pr in data.get("processes", []):
+        owner = unit_obj.get(pr.get("owner_org_unit_id"))
+        po = Process(account_id=account_id, name=pr.get("name") or "",
+                     owner_org_unit_id=(owner.id if owner else None))
+        db.session.add(po)
+        proc_obj[pr.get("id")] = po
+        counts["processes"] += 1
+    db.session.flush()
+    proc_map = {old: o.id for old, o in proc_obj.items()}
+    for pr in data.get("processes", []):
+        po = proc_obj[pr.get("id")]
+        parent = proc_obj.get(pr.get("parent_process_id"))
+        if parent is not None:
+            po.parent_process_id = parent.id
+        xml = (pr.get("bpmn_xml") or "").strip()
+        if xml:
+            po.bpmn_xml = remap_pros_ids(
+                xml, func=id_map["func"], role=id_map["role"], unit=id_map["unit"],
+                person=id_map["person"], org=id_map["org"], process=proc_map)
 
     db.session.commit()
     return counts
