@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block head %}
+<style>
+  .assign-layout { display: grid; grid-template-columns: 340px 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 860px) { .assign-layout { grid-template-columns: 1fr; } }
+
+  .assign-col { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .assign-col h3 { margin: 0 0 10px; font-family: var(--font-display); }
+  .assign-hint { color: var(--muted); font-size: .86em; margin: 0 0 12px; }
+
+  /* Organigramm-Baum */
+  .tree { list-style: none; margin: 0; padding: 0; }
+  .tree ul { list-style: none; margin: 0 0 0 16px; padding: 0; border-left: 1px dashed var(--border); }
+  .tree li { margin: 4px 0; }
+  .org-name { font-weight: 600; margin: 10px 0 4px; }
+
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px;
+          border: 1px solid var(--border); background: var(--surface-2); cursor: grab; font-size: .88em;
+          user-select: none; }
+  .chip:active { cursor: grabbing; }
+  .chip.unit { border-style: solid; }
+  .chip.person { background: var(--surface); }
+  .chip .tag { color: var(--muted); font-size: .82em; }
+  .chip-drag { opacity: .4; }
+
+  /* Prozess / Aktivitäten */
+  .proc-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .proc-bar select { padding: 6px 8px; }
+
+  .activity { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 8px 0;
+              background: var(--surface-2); transition: border-color .12s, background .12s; }
+  .activity h4 { margin: 0 0 6px; font-size: 1em; }
+  .activity.drop-hot { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface-2)); }
+  .assigned { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .assigned .who { background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+                   padding: 2px 8px; font-size: .84em; }
+  .assigned .none { color: var(--muted); font-size: .84em; }
+  .gaps { margin-top: 6px; color: var(--status-red); font-size: .82em; }
+  .meta { color: var(--muted); font-size: .8em; }
+  .flash-inline { font-size: .82em; color: var(--accent-dark); margin-left: 8px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="section-title">
+  <h2>Zuordnung Organisation → Aktivität</h2>
+</div>
+<p class="assign-hint">
+  Ziehen Sie links eine <strong>Person</strong> oder eine <strong>Organisationseinheit</strong> auf eine
+  Aktivität rechts. Bei einer Einheit werden alle enthaltenen Personen zugeordnet, die Funktionen als
+  kleinster gemeinsamer Nenner (Schnittmenge) und alle abgedeckten Rollen (Vereinigung).
+</p>
+
+<div class="assign-layout">
+  <!-- ── Organigramm ──────────────────────────────────────────── -->
+  <div class="assign-col">
+    <h3>Organigramm</h3>
+    {% if not organizations %}
+      <p class="assign-hint">Keine Organisation erfasst.</p>
+    {% endif %}
+    {% macro unit_node(u) %}
+      <li>
+        <span class="chip unit" draggable="true"
+              data-type="unit" data-id="{{ u.id }}" data-label="{{ u.name }}">
+          🏛️ {{ u.name }} <span class="tag">{{ u.unit_type }}</span>
+        </span>
+        {% if u.person or u.children %}
+        <ul>
+          {% if u.person %}
+          <li>
+            <span class="chip person" draggable="true"
+                  data-type="person" data-id="{{ u.person.id }}" data-label="{{ u.person.name }}">
+              👤 {{ u.person.name }}
+            </span>
+          </li>
+          {% endif %}
+          {% for c in u.children %}{{ unit_node(c) }}{% endfor %}
+        </ul>
+        {% endif %}
+      </li>
+    {% endmacro %}
+    {% for org in organizations %}
+      <div class="org-name">{{ org.name }}</div>
+      <ul class="tree">
+        {% for u in org.roots %}{{ unit_node(u) }}{% endfor %}
+      </ul>
+    {% endfor %}
+  </div>
+
+  <!-- ── Prozess / Aktivitäten ────────────────────────────────── -->
+  <div class="assign-col">
+    <h3>Prozess</h3>
+    <div class="proc-bar">
+      <select id="proc-select">
+        {% for p in processes %}
+          <option value="{{ p.id }}" {% if p.id == selected_id %}selected{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+      </select>
+      <a class="button" id="open-bpmn" href="#">BPMN-Modell öffnen</a>
+      <span class="flash-inline" id="flash"></span>
+    </div>
+    <div id="activities"><p class="assign-hint">Aktivitäten werden geladen …</p></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const sel = document.getElementById('proc-select');
+  const box = document.getElementById('activities');
+  const flash = document.getElementById('flash');
+  const openLink = document.getElementById('open-bpmn');
+  let pid = sel ? sel.value : null;
+
+  function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+  function showFlash(msg) {
+    flash.textContent = msg;
+    setTimeout(() => { if (flash.textContent === msg) flash.textContent = ''; }, 2500);
+  }
+
+  function renderActivities(data) {
+    if (!data || !data.has_model || !data.activities.length) {
+      box.innerHTML = '<p class="assign-hint">Dieser Prozess hat noch keine Aktivitäten im BPMN-Modell.</p>';
+      return;
+    }
+    // Subprozess-Aktivitäten (Präfix „↳“) sind hier nicht direkt zuweisbar – sie
+    // gehören zum jeweiligen Subprozess. Nur eigene Aktivitäten anzeigen.
+    const own = data.activities.filter(a => !a.subprocess);
+    box.innerHTML = own.map(a => {
+      const persons = (a.persons || []).map(p => '<span class="who">👤 ' + esc(p.name) + '</span>').join('');
+      const assigned = persons
+        ? '<div class="assigned">' + persons + '</div>'
+        : '<div class="assigned"><span class="none">noch niemand zugeordnet</span></div>';
+      const gaps = (a.gaps && a.gaps.length)
+        ? '<div class="gaps">⚠ ' + a.gaps.map(esc).join(' · ') + '</div>' : '';
+      return '<div class="activity" data-activity-id="' + esc(a.id) + '">'
+           + '<h4>' + esc(a.name) + '</h4>'
+           + '<div class="meta">Aufwand: ' + (a.effort || 0) + ' Min.</div>'
+           + assigned + gaps + '</div>';
+    }).join('');
+    wireDropTargets();
+  }
+
+  function loadActivities() {
+    if (!pid) { box.innerHTML = '<p class="assign-hint">Kein Prozess vorhanden.</p>'; return; }
+    openLink.href = '/process/' + pid + '/bpmn';
+    fetch('/api/process/' + pid + '/bpmn/analysis')
+      .then(r => r.json()).then(renderActivities)
+      .catch(() => { box.innerHTML = '<p class="gaps">Analyse konnte nicht geladen werden.</p>'; });
+  }
+
+  // ── Drag-Quellen (Chips) ──
+  document.querySelectorAll('.chip[draggable="true"]').forEach(chip => {
+    chip.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('application/json', JSON.stringify({
+        type: chip.dataset.type, id: chip.dataset.id, label: chip.dataset.label,
+      }));
+      e.dataTransfer.effectAllowed = 'copy';
+      chip.classList.add('chip-drag');
+    });
+    chip.addEventListener('dragend', () => chip.classList.remove('chip-drag'));
+  });
+
+  // ── Drop-Ziele (Aktivitäten) ──
+  function wireDropTargets() {
+    box.querySelectorAll('.activity').forEach(card => {
+      card.addEventListener('dragover', e => { e.preventDefault(); card.classList.add('drop-hot'); });
+      card.addEventListener('dragleave', () => card.classList.remove('drop-hot'));
+      card.addEventListener('drop', e => {
+        e.preventDefault();
+        card.classList.remove('drop-hot');
+        let payload;
+        try { payload = JSON.parse(e.dataTransfer.getData('application/json')); } catch (_) { return; }
+        const activityId = card.dataset.activityId;
+        fetch('/api/process/' + pid + '/assign', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({activity_id: activityId, source_type: payload.type, source_id: payload.id}),
+        }).then(r => r.json()).then(res => {
+          if (res.ok) {
+            const n = res.person_count > 1 ? (' (' + res.person_count + ' Personen)') : '';
+            showFlash('„' + payload.label + '“ zugeordnet' + n);
+            loadActivities();
+          } else {
+            showFlash('Nicht zugeordnet: ' + (res.error || 'Fehler'));
+          }
+        }).catch(() => showFlash('Serverfehler bei der Zuordnung'));
+      });
+    });
+  }
+
+  if (sel) sel.addEventListener('change', () => { pid = sel.value; loadActivities(); });
+  loadActivities();
+})();
+</script>
+{% endblock %}

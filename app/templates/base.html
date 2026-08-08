@@ -46,6 +46,10 @@
                     <a href="{{ url_for('process.process_list') }}">Prozesse</a>
                 {% endif %}
 
+                {% if endpoint_exists('process.assignment') %}
+                    <a href="{{ url_for('process.assignment') }}">Zuordnung</a>
+                {% endif %}
+
                 {% if endpoint_exists('process.workload') %}
                     <a href="{{ url_for('process.workload') }}">Auslastung</a>
                 {% endif %}

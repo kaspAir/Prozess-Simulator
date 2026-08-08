@@ -186,6 +186,90 @@ def api_bpmn_analysis(process_id):
     return jsonify(analyze_bpmn(process))
 
 
+def _org_unit_tree(unit):
+    """Serialisierbarer Teilbaum einer Organisationseinheit (mit besetzter Person)."""
+    children = sorted(unit.children, key=lambda u: (u.sort_order, u.id))
+    return {
+        "id": unit.id,
+        "name": unit.name,
+        "unit_type": unit.unit_type,
+        "person": ({"id": unit.person.id, "name": unit.person.name} if unit.person else None),
+        "children": [_org_unit_tree(c) for c in children],
+    }
+
+
+@process_bp.route("/assignment")
+def assignment():
+    """Zuordnungssicht: links das Organigramm als Baum, rechts ein wählbarer
+    Prozess. Per Drag'n'Drop werden Einheiten/Personen auf Aktivitäten gezogen."""
+    account_id = current_account_id()
+    oq = Organization.query
+    if account_id is not None:
+        oq = oq.filter_by(account_id=account_id)
+    organizations = []
+    for org in oq.order_by(Organization.name).all():
+        roots = [u for u in org.units if u.parent_id is None]
+        roots.sort(key=lambda u: (u.sort_order, u.id))
+        organizations.append({"id": org.id, "name": org.name,
+                              "roots": [_org_unit_tree(u) for u in roots]})
+
+    pq = Process.query
+    if account_id is not None:
+        pq = pq.filter_by(account_id=account_id)
+    processes = pq.order_by(Process.name).all()
+    selected_id = request.args.get("process_id", type=int)
+    if not selected_id and processes:
+        selected_id = processes[0].id
+    return render_template("assignment.html", organizations=organizations,
+                           processes=processes, selected_id=selected_id)
+
+
+@process_bp.route("/api/process/<int:process_id>/assign", methods=["POST"])
+def api_assign_activity(process_id):
+    """Weist einer BPMN-Aktivität eine Person oder eine Organisationseinheit zu.
+    Bei einer Einheit: alle Personen im Teilbaum + Schnittmenge der Funktionen +
+    Vereinigung der Rollen (siehe assignment_service)."""
+    account_id = current_account_id()
+    process = Process.query.get_or_404(process_id)
+    if account_id is not None and process.account_id != account_id:
+        abort(404)
+
+    data = request.get_json(silent=True) or {}
+    activity_id = (data.get("activity_id") or "").strip()
+    source_type = data.get("source_type")
+    source_id = data.get("source_id")
+    if not activity_id or source_type not in ("person", "unit"):
+        return jsonify({"ok": False, "error": "activity_id/source_type fehlt"}), 400
+    try:
+        source_id = int(source_id)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "source_id ungültig"}), 400
+
+    from app.services.assignment_service import resolve_assignment
+    resolved = resolve_assignment(account_id, source_type, source_id)
+    if resolved is None:
+        return jsonify({"ok": False, "error": "Quelle nicht gefunden"}), 404
+    if not resolved["person_ids"]:
+        return jsonify({"ok": False, "error": "keine Personen in dieser Einheit"}), 400
+
+    from app.services.node_to_bpmn import effective_bpmn
+    from app.services.bpmn_assign import set_activity_pros
+    xml = effective_bpmn(process) or DEFAULT_BPMN.format(pid=process.id)
+    csv = lambda ids: ",".join(str(i) for i in ids)  # noqa: E731
+    new_xml, found = set_activity_pros(
+        xml, activity_id,
+        personIds=csv(resolved["person_ids"]),
+        functionIds=csv(resolved["function_ids"]),
+        roleIds=csv(resolved["role_ids"]),
+    )
+    if not found:
+        return jsonify({"ok": False, "error": "Aktivität nicht gefunden"}), 404
+    process.bpmn_xml = new_xml
+    db.session.commit()
+    return jsonify({"ok": True, "label": resolved["label"],
+                    "person_count": resolved["person_count"]})
+
+
 @process_bp.route("/process/<int:process_id>")
 def process_graph(process_id):
     process = Process.query.get_or_404(process_id)
