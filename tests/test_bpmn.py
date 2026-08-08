@@ -99,6 +99,18 @@ def test_dashboard_shows_bpmn_summary(app, client):
     assert "BPMN Prozess" in html
 
 
+def test_process_type_saved_and_on_map(app, client):
+    """Prozesstyp wird gespeichert und erscheint in der Prozesslandkarte."""
+    pid = _admin_with_process(app, client)
+    client.post(f"/processes/{pid}",
+                data={"name": "BPMN Prozess", "priority": 2, "process_type": "Kernprozess"},
+                follow_redirects=True)
+    with app.app_context():
+        from app.models import Process
+        assert Process.query.get(pid).process_type == "Kernprozess"
+    assert "Kernprozess" in client.get("/process-map").get_data(as_text=True)
+
+
 def test_bpmn_save_requires_manage_permission(app, client):
     make_account_with_role(app, "Viewer", {P_DASHBOARD_VIEW}, email="bpmn-viewer@test.ch")
     login(client, "bpmn-viewer@test.ch")

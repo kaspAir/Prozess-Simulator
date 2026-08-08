@@ -27,6 +27,17 @@
         </select>
     </label>
 
+    <label>Prozesstyp (für die Prozesslandkarte, optional)
+        <input name="process_type" list="process-type-suggestions"
+               value="{{ process.process_type if process and process.process_type else '' }}"
+               placeholder="z. B. Kernprozess, Führungsprozess, Unterstützungsprozess">
+        <datalist id="process-type-suggestions">
+            <option value="Führungsprozess">
+            <option value="Kernprozess">
+            <option value="Unterstützungsprozess">
+        </datalist>
+    </label>
+
     <label>In Prozesslandkarte eingebunden in
         <select name="parent_process_id">
             <option value="">kein übergeordneter Prozess / Hauptprozess</option>
@@ -46,7 +57,7 @@
 
 {% if process %}
     <p>
-        <a class="button" href="{{ url_for('process.process_graph', process_id=process.id) }}">Prozess öffnen</a>
+        <a class="button" href="{{ url_for('process.bpmn_editor', process_id=process.id) }}">BPMN-Modell öffnen</a>
         <a class="button" href="{{ url_for('process.process_map') }}">Zur Prozesslandkarte</a>
     </p>
 {% endif %}

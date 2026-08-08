@@ -67,7 +67,9 @@
     <button type="button" class="button" id="bpmn-save">Speichern</button>
     <button type="button" class="button" id="bpmn-analyze">Berechnen</button>
     <button type="button" class="button" id="bpmn-download">Als .bpmn herunterladen</button>
-    <a class="button" href="{{ url_for('process.process_graph', process_id=process.id) }}">Zurück zum Prozess</a>
+    <button type="button" class="button" id="bpmn-import">BPMN-Datei importieren</button>
+    <input type="file" id="bpmn-file" accept=".bpmn,.xml,application/xml,text/xml" hidden>
+    <a class="button" href="{{ url_for('process.process_map') }}">Zur Prozesslandkarte</a>
     {% if back_to %}
     <a class="button" href="{{ url_for('process.bpmn_editor', process_id=back_to) }}">← Zurück zum übergeordneten Prozess</a>
     {% endif %}
@@ -611,6 +613,26 @@
   document.getElementById("bpmn-save").addEventListener("click", save);
   document.getElementById("bpmn-analyze").addEventListener("click", analyze);
   document.getElementById("bpmn-download").addEventListener("click", download);
+
+  // ── BPMN-Datei importieren (clientseitig; Kunden bringen ihr eigenes BPMN mit) ──
+  document.getElementById("bpmn-import").addEventListener("click", () => document.getElementById("bpmn-file").click());
+  document.getElementById("bpmn-file").addEventListener("change", (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = async () => {
+      try {
+        await modeler.importXML(String(rd.result));
+        try { modeler.get("canvas").zoom("fit-viewport"); } catch (x) { /* leeres Diagramm */ }
+        status.textContent = "BPMN importiert – bitte prüfen und «Speichern».";
+      } catch (err) {
+        alert("Import fehlgeschlagen – keine gültige BPMN-Datei.\n" + ((err && err.message) || err));
+      }
+      e.target.value = "";
+    };
+    rd.readAsText(f);
+  });
+
   load();
 })();
 </script>

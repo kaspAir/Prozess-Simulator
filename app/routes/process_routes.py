@@ -422,10 +422,11 @@ def process_edit(process_id=None):
         process.owner_org_unit_id = int(owner_org_unit_id) if owner_org_unit_id else None
         prio = request.form.get("priority", type=int)
         process.priority = prio if prio in (1, 2, 3) else 2
+        process.process_type = (request.form.get("process_type") or "").strip() or None
         db.session.add(process)
         db.session.commit()
 
-        return redirect(url_for("process.process_graph", process_id=process.id))
+        return redirect(url_for("process.bpmn_editor", process_id=process.id))
 
     processes = Process.query.order_by(Process.name).all()
 

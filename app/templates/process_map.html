@@ -22,10 +22,14 @@
                  data-process-id="{{ process.id }}"
                  data-process-name="{{ process.name }}"
                  data-parent-id="{{ process.parent_process_id or '' }}"
-                 data-url="{{ url_for('process.process_graph', process_id=process.id) }}"
+                 data-url="{{ url_for('process.bpmn_editor', process_id=process.id) }}"
                  style="left: {{ process.x if process.x is not none else fallback_x }}px; top: {{ process.y if process.y is not none else fallback_y }}px;">
 
                 <strong>{{ process.name }}</strong>
+
+                {% if process.process_type %}
+                    <span class="process-parent-label" style="font-weight:600;">{{ process.process_type }}</span>
+                {% endif %}
 
                 {% if process.parent %}
                     <span class="process-parent-label">eingebunden in: {{ process.parent.name }}</span>
@@ -49,7 +53,7 @@
                 {% endif %}
 
                 <div class="process-card-actions">
-                    <a href="{{ url_for('process.process_graph', process_id=process.id) }}">öffnen</a>
+                    <a href="{{ url_for('process.bpmn_editor', process_id=process.id) }}">öffnen</a>
                     <a href="{{ url_for('process.process_edit', process_id=process.id) }}">bearbeiten</a>
 
                     {% if process.parent_process_id %}

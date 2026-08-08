@@ -80,6 +80,18 @@ def ensure_process_priority_column():
         db.session.commit()
 
 
+def ensure_process_type_column():
+    """Ergaenzt die process_type-Spalte in processes (datenerhaltend)."""
+    insp = inspect(db.engine)
+    if "processes" not in set(insp.get_table_names()):
+        return
+    cols = [c["name"] for c in insp.get_columns("processes")]
+    if "process_type" not in cols:
+        db.session.execute(text("ALTER TABLE processes ADD COLUMN process_type VARCHAR(120)"))
+        print("  + Spalte process_type zu processes ergaenzt")
+        db.session.commit()
+
+
 def run():
     app = create_app()
     with app.app_context():
@@ -88,6 +100,7 @@ def run():
         ensure_process_bpmn_column()
         ensure_process_annual_cases_column()
         ensure_process_priority_column()
+        ensure_process_type_column()
 
         # 1) Bootstrap-Account
         account = Account.query.first()

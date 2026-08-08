@@ -17,7 +17,7 @@
             <td>{% if process.parent_process_id %}Folge-/Subprozess{% else %}Hauptprozess{% endif %}</td>
             <td>{{ process.parent.name if process.parent else "" }}</td>
             <td class="process-actions">
-                <a href="{{ url_for('process.process_graph', process_id=process.id) }}">öffnen</a>
+                <a href="{{ url_for('process.bpmn_editor', process_id=process.id) }}">öffnen</a>
                 <a href="{{ url_for('process.process_edit', process_id=process.id) }}">bearbeiten</a>
 
                 {% if process.parent_process_id %}
