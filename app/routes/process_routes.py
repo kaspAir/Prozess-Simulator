@@ -6,7 +6,6 @@ from flask_login import current_user
 from app.models import db, Role, Function, Process, Node, Edge, OrgUnit, Organization
 from app.auth.permissions import P_DASHBOARD_VIEW, P_PROCESSES_MANAGE, P_SIMULATION_RUN
 from app.auth.service import user_has_permission, current_account_id
-from app.simulation import simulate_end_to_end
 from app.calculations import (
     node_position_cost,
     process_position_cost,
@@ -495,43 +494,6 @@ def process_list():
         "process_list.html",
         processes=processes,
         process_summaries=process_summaries,
-    )
-
-
-@process_bp.route("/simulation", methods=["GET", "POST"])
-def simulation():
-    processes = Process.query.filter(Process.parent_process_id.is_(None)).order_by(Process.name).all()
-
-    selected_process_id = request.values.get("process_id", type=int)
-    if selected_process_id:
-        process = Process.query.get(selected_process_id)
-        if process:
-            from flask import session
-            session["simulation_process_id"] = process.id
-            selected_process = process
-        else:
-            selected_process = processes[0] if processes else None
-    else:
-        from flask import session
-        session_process_id = session.get("simulation_process_id")
-        selected_process = Process.query.get(session_process_id) if session_process_id else (processes[0] if processes else None)
-
-    case_count = request.values.get("case_count", type=float)
-    if case_count is not None:
-        from flask import session
-        session["simulation_case_count"] = case_count
-    else:
-        from flask import session
-        case_count = session.get("simulation_case_count", 1000)
-
-    result = simulate_end_to_end(selected_process, case_count) if selected_process else None
-
-    return render_template(
-        "simulation.html",
-        processes=processes,
-        selected_process=selected_process,
-        case_count=case_count,
-        result=result,
     )
 
 

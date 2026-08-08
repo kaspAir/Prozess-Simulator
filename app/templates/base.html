@@ -46,10 +46,6 @@
                     <a href="{{ url_for('process.process_list') }}">Prozesse</a>
                 {% endif %}
 
-                {% if endpoint_exists('process.simulation') %}
-                    <a href="{{ url_for('process.simulation') }}">Simulation</a>
-                {% endif %}
-
                 {% if endpoint_exists('process.workload') %}
                     <a href="{{ url_for('process.workload') }}">Auslastung</a>
                 {% endif %}
