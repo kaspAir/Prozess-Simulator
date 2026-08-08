@@ -24,9 +24,10 @@ def test_logged_in_without_role_gets_friendly_403(app, client):
     r = client.get("/dashboard")
     assert r.status_code == 403
     body = r.get_data(as_text=True)
-    assert "keine Rolle" in body                     # freundlicher Text
-    assert "Staatsanwaltschaft Musterkanton" in body  # Account genannt
-    assert "You don't have the permission" not in body  # nicht die Werkzeug-Seite
+    assert "keine Rolle" in body                          # freundlicher Text
+    # Mandantenfaehigkeit: die 403-Seite darf KEINEN Mandanten-/Accountnamen nennen.
+    assert "Staatsanwaltschaft Musterkanton" not in body
+    assert "You don't have the permission" not in body    # nicht die Werkzeug-Seite
 
 
 def test_anonymous_403_redirects_to_login(app, client):

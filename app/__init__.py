@@ -81,6 +81,7 @@ def create_app():
     def utility_processor():
         from app.auth.service import (
             user_has_permission, current_account, active_organization_id,
+            accessible_organizations, has_account_wide_access,
         )
 
         def endpoint_exists(endpoint):
@@ -89,11 +90,15 @@ def create_app():
         def current_user_can(permission_key, organization_id=None):
             return user_has_permission(current_user, permission_key, organization_id)
 
+        acc = current_account()
+        authed = current_user.is_authenticated
         return dict(
             endpoint_exists=endpoint_exists,
             current_user_can=current_user_can,
-            current_account=current_account(),
+            current_account=acc,
             active_organization_id=active_organization_id(),
+            accessible_organizations=(accessible_organizations(current_user, acc) if (authed and acc) else []),
+            can_switch_whole_account=(has_account_wide_access(current_user, acc) if (authed and acc) else False),
         )
 
     # Freundliche 403-Seite statt der nackten Werkzeug-Meldung: Ein angemeldeter
@@ -114,10 +119,11 @@ def create_app():
                                "user=%s account=%s path=%s",
                                getattr(current_user, "email", "?"),
                                acc.id if acc else None, request.path)
+        # Bewusst OHNE Account-/Mandantennamen – die 403-Seite darf keine Bereiche
+        # benennen (schon gar nicht fremde Mandanten).
         return render_template(
             "errors/403.html",
             user_name=getattr(current_user, "name", None),
-            account_name=acc.name if acc else None,
             no_role=no_role,
         ), 403
 

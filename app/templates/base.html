@@ -74,13 +74,26 @@
     {% if current_user.is_authenticated %}
     <div class="user-bar" style="display:flex;align-items:center;gap:14px;justify-content:flex-end;
                                  padding:6px 16px;font-size:.9em;border-top:1px solid #e5e7eb;">
-        <span>👤 {{ current_user.name }}{% if current_account %} · {{ current_account.name }}{% endif %}</span>
+        {# Kontext-Label: aktive Organisation, sonst (nur bei accountweitem Zugriff)
+           der Accountname, sonst die einzige zugaengliche Organisation. So sieht
+           ein Nutzer nie den Namen eines anderen Mandanten. #}
+        {% set ns = namespace(ctx=None) %}
+        {% for o in accessible_organizations %}
+            {% if o.id == active_organization_id %}{% set ns.ctx = o.name %}{% endif %}
+        {% endfor %}
+        {% if not ns.ctx %}
+            {% if can_switch_whole_account and current_account %}{% set ns.ctx = current_account.name %}
+            {% elif accessible_organizations %}{% set ns.ctx = accessible_organizations[0].name %}{% endif %}
+        {% endif %}
+        <span>👤 {{ current_user.name }}{% if ns.ctx %} · {{ ns.ctx }}{% endif %}</span>
 
-        {% if current_account and current_account.organizations %}
+        {% if accessible_organizations|length > 1 or can_switch_whole_account %}
         <form method="post" action="{{ url_for('admin.switch_org') }}" style="margin:0;">
             <select name="organization_id" onchange="this.form.submit()">
-                <option value="">— ganzer Account —</option>
-                {% for o in current_account.organizations %}
+                {% if can_switch_whole_account %}
+                    <option value="">— ganzer Account —</option>
+                {% endif %}
+                {% for o in accessible_organizations %}
                     <option value="{{ o.id }}" {% if active_organization_id == o.id %}selected{% endif %}>{{ o.name }}</option>
                 {% endfor %}
             </select>

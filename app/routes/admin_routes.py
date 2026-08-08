@@ -11,6 +11,7 @@ from app.auth.permissions import P_ACCOUNT_MEMBERS
 from app.auth.service import (
     require_permission, current_account, set_active_account, set_active_organization, create_invitation,
     is_last_account_admin, set_password, user_has_permission,
+    accessible_organizations, has_account_wide_access,
 )
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -171,7 +172,16 @@ def create_organization():
 @admin_bp.route("/switch-org", methods=["POST"])
 @login_required
 def switch_org():
-    set_active_organization(request.form.get("organization_id", type=int) or None)
+    org_id = request.form.get("organization_id", type=int) or None
+    if org_id is None:
+        # «ganzer Account» nur mit accountweitem Zugriff (sonst kein Account-Level)
+        if not has_account_wide_access(current_user):
+            abort(403)
+    else:
+        # Nur auf eine Organisation wechseln, die der Nutzer auch sehen darf.
+        if org_id not in {o.id for o in accessible_organizations(current_user)}:
+            abort(403)
+    set_active_organization(org_id)
     return redirect(request.referrer or url_for("main.dashboard"))
 
 

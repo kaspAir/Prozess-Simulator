@@ -16,16 +16,51 @@ from app.auth.permissions import P_ACCOUNT_MEMBERS
 # ── Aktiver Kontext (Session) ──────────────────────────────────────────────
 def current_account():
     aid = session.get("active_account_id") if has_request_context() else None
-    if aid:
-        acc = db.session.get(Account, aid)
-        if acc:
-            return acc
-    if current_user and current_user.is_authenticated:
+    authed = bool(current_user and current_user.is_authenticated)
+    # Einen Session-Account NUR akzeptieren, wenn der angemeldete Nutzer dort auch
+    # Mitglied ist (oder Super-Admin). Sonst koennte ein veralteter/fremder Wert
+    # den Namen eines anderen Mandanten preisgeben.
+    if aid and authed:
+        if getattr(current_user, "is_super_admin", False) or \
+                Membership.query.filter_by(user_id=current_user.id, account_id=aid).first():
+            acc = db.session.get(Account, aid)
+            if acc:
+                return acc
+    if authed:
         m = Membership.query.filter_by(user_id=current_user.id).first()
         if m:
             session["active_account_id"] = m.account_id
             return m.account
     return None
+
+
+def has_account_wide_access(user, account=None):
+    """True, wenn der User den ganzen Account sehen darf (Super-Admin oder eine
+    accountweite Rollenzuweisung). Nur dann ist «ganzer Account» zulaessig."""
+    if getattr(user, "is_super_admin", False):
+        return True
+    account = account or current_account()
+    if account is None:
+        return False
+    m = _membership(user, account.id)
+    return bool(m and any(a.organization_id is None for a in m.assignments))
+
+
+def accessible_organizations(user, account=None):
+    """Die Organisationen, die der User im Account sehen/wechseln darf. Super-Admin
+    und accountweite Rollen sehen alle; sonst NUR die per-Organisation zugewiesenen.
+    Andere Mandanten (Organisationen) existieren aus seiner Sicht schlicht nicht."""
+    account = account or current_account()
+    if account is None:
+        return []
+    orgs = sorted(account.organizations, key=lambda o: o.name or "")
+    if has_account_wide_access(user, account):
+        return orgs
+    m = _membership(user, account.id)
+    if m is None:
+        return []
+    allowed = {a.organization_id for a in m.assignments if a.organization_id is not None}
+    return [o for o in orgs if o.id in allowed]
 
 
 def current_account_id():

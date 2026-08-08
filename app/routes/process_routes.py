@@ -5,7 +5,9 @@ from flask_login import current_user
 
 from app.models import db, Role, Function, Process, Node, Edge, OrgUnit, Organization
 from app.auth.permissions import P_DASHBOARD_VIEW, P_PROCESSES_MANAGE, P_SIMULATION_RUN
-from app.auth.service import user_has_permission, current_account_id, active_organization_id
+from app.auth.service import (
+    user_has_permission, current_account_id, active_organization_id, accessible_organizations,
+)
 from app.services.process_scope import scoped_processes
 from app.calculations import (
     node_position_cost,
@@ -549,10 +551,7 @@ def process_edit(process_id=None):
     # Parent-Auswahl nur aus derselben Organisation (keine org-übergreifende
     # Verschachtelung), und die Organisationen für die Auswahl.
     processes = scoped_processes().order_by(Process.name).all()
-    org_query = Organization.query
-    if current_account_id() is not None:
-        org_query = org_query.filter_by(account_id=current_account_id())
-    organizations = org_query.order_by(Organization.name).all()
+    organizations = accessible_organizations(current_user)
 
     return render_template(
         "process_edit.html",

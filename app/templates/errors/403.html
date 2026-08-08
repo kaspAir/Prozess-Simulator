@@ -4,8 +4,7 @@
   <h2>Kein Zugriff auf diese Seite</h2>
   <p>
     Du bist angemeldet{% if user_name %} als <strong>{{ user_name }}</strong>{% endif %},
-    aber dir ist für {% if account_name %}den Bereich «{{ account_name }}»{% else %}diesen Bereich{% endif %}
-    noch <strong>keine Rolle mit den nötigen Rechten</strong> zugewiesen.
+    aber dir ist für diesen Bereich noch <strong>keine Rolle mit den nötigen Rechten</strong> zugewiesen.
   </p>
   {% if no_role %}
   <p class="small">

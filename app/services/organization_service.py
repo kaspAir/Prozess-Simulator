@@ -1,18 +1,19 @@
-from app.models import Organization, OrgUnit, Role, Function, Person
-from app.auth.service import current_account_id
+from flask_login import current_user
+
+from app.models import OrgUnit, Role, Function, Person
+from app.auth.service import current_account_id, accessible_organizations
 
 
 def get_organization_overview(org_id=None):
     account_id = current_account_id()
-    organizations = (
-        Organization.query.filter_by(account_id=account_id)
-        .order_by(Organization.name).all()
-    )
+    # Nur Organisationen, die der angemeldete Nutzer sehen darf – andere Mandanten
+    # (Organisationen) tauchen hier gar nicht erst auf.
+    organizations = accessible_organizations(current_user)
 
     selected_org = None
     if org_id:
-        selected_org = Organization.query.filter_by(id=org_id, account_id=account_id).first()
-    # Fallback (auch bei ungueltiger/geloeschter org_id): erste Organisation
+        selected_org = next((o for o in organizations if o.id == org_id), None)
+    # Fallback (auch bei ungueltiger/fremder org_id): erste zugaengliche Organisation
     if selected_org is None and organizations:
         selected_org = organizations[0]
 
