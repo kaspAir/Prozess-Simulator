@@ -7,6 +7,16 @@
         <input name="name" value="{{ process.name if process else '' }}" required>
     </label>
 
+    <label>Organisation
+        <select name="organization_id" required>
+            {% set _sel_org = (process.organization_id if process and process.organization_id else active_organization_id) %}
+            <option value="">— bitte wählen —</option>
+            {% for org in organizations %}
+                <option value="{{ org.id }}" {% if _sel_org == org.id %}selected{% endif %}>{{ org.name }}</option>
+            {% endfor %}
+        </select>
+    </label>
+
     <label>Process Owner / verantwortliche Organisationseinheit
         <select name="owner_org_unit_id">
             <option value="">kein Process Owner</option>

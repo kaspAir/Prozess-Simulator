@@ -16,7 +16,7 @@ from sqlalchemy import inspect, text
 
 from app import create_app
 from app.models import (
-    db, Account, Organization, Process, Role, Function, Activity, Person,
+    db, Account, Organization, OrgUnit, Process, Role, Function, Activity, Person,
     User, Membership, AccessRole, AccessRolePermission, RoleAssignment,
 )
 from app.auth.permissions import TEMPLATE_ROLES, ACCOUNT_ADMIN_ROLE
@@ -92,6 +92,45 @@ def ensure_process_type_column():
         db.session.commit()
 
 
+def ensure_process_organization_id_column():
+    """Ergaenzt die organization_id-Spalte in processes (datenerhaltend). Bindet
+    Prozesse an eine Organisation, damit die Prozesslandkarten getrennt bleiben."""
+    insp = inspect(db.engine)
+    if "processes" not in set(insp.get_table_names()):
+        return
+    cols = [c["name"] for c in insp.get_columns("processes")]
+    if "organization_id" not in cols:
+        db.session.execute(text("ALTER TABLE processes ADD COLUMN organization_id INTEGER"))
+        print("  + Spalte organization_id zu processes ergaenzt")
+        db.session.commit()
+
+
+def backfill_process_organization():
+    """Ordnet bestehende Prozesse ohne Organisation einer zu: nach dem Process
+    Owner (dessen Organisation), sonst – wenn der Account genau EINE Organisation
+    hat – dieser. Mehrdeutige Fälle bleiben offen (in der Gesamtsicht sichtbar)."""
+    insp = inspect(db.engine)
+    if "processes" not in set(insp.get_table_names()):
+        return
+    changed = 0
+    for pr in Process.query.filter(Process.organization_id.is_(None)).all():
+        org_id = None
+        if pr.owner_org_unit_id:
+            unit = OrgUnit.query.get(pr.owner_org_unit_id)
+            if unit:
+                org_id = unit.organization_id
+        if org_id is None and pr.account_id:
+            orgs = Organization.query.filter_by(account_id=pr.account_id).all()
+            if len(orgs) == 1:
+                org_id = orgs[0].id
+        if org_id:
+            pr.organization_id = org_id
+            changed += 1
+    if changed:
+        db.session.commit()
+        print(f"  + {changed} Prozess(e) einer Organisation zugeordnet (Backfill)")
+
+
 def run():
     app = create_app()
     with app.app_context():
@@ -101,6 +140,8 @@ def run():
         ensure_process_annual_cases_column()
         ensure_process_priority_column()
         ensure_process_type_column()
+        ensure_process_organization_id_column()
+        backfill_process_organization()
 
         # 1) Bootstrap-Account
         account = Account.query.first()

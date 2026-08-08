@@ -5,7 +5,8 @@ from flask_login import current_user
 
 from app.models import db, Role, Function, Process, Node, Edge, OrgUnit, Organization
 from app.auth.permissions import P_DASHBOARD_VIEW, P_PROCESSES_MANAGE, P_SIMULATION_RUN
-from app.auth.service import user_has_permission, current_account_id
+from app.auth.service import user_has_permission, current_account_id, active_organization_id
+from app.services.process_scope import scoped_processes
 from app.calculations import (
     node_position_cost,
     process_position_cost,
@@ -137,7 +138,7 @@ def save_volumes():
     Auslastungs- UND der Dashboard-Seite genutzt (zentral, also synchron)."""
     from app.services.workload_service import entry_processes
     acc = current_account_id()
-    for p in entry_processes(acc):
+    for p in entry_processes(acc, active_organization_id()):
         v = request.form.get("v_%d" % p.id, type=float)
         p.annual_cases = v if (v and v > 0) else 0
     db.session.commit()
@@ -152,9 +153,10 @@ def workload():
     Einstiegsprozesse (inkl. Subprozesse) beim gespeicherten Mengengerüst je Prozess."""
     from app.services.workload_service import entry_processes, cross_process_workload
     acc = current_account_id()
-    procs = entry_processes(acc)
+    org = active_organization_id()
+    procs = entry_processes(acc, org)
     volumes = {p.id: p.annual_cases for p in procs if (p.annual_cases or 0) > 0}
-    result = cross_process_workload(acc, volumes) if volumes else None
+    result = cross_process_workload(acc, volumes, organization_id=org) if volumes else None
     return render_template("workload.html", processes=procs, volumes=volumes, result=result)
 
 
@@ -164,14 +166,15 @@ def peak():
     Prozess → Auslastung je Person in der Periode, plus Frist-Prüfung."""
     from app.services.workload_service import entry_processes, peak_workload
     acc = current_account_id()
-    procs = [p for p in entry_processes(acc) if (p.annual_cases or 0) > 0]
+    org = active_organization_id()
+    procs = [p for p in entry_processes(acc, org) if (p.annual_cases or 0) > 0]
     peak_id = request.args.get("peak", type=int)
     cases = request.args.get("cases", type=float)
     days = request.args.get("days", type=int)
     frist = request.args.get("frist") == "1"
     result = None
     if peak_id and cases and cases > 0 and days and days > 0:
-        result = peak_workload(acc, peak_id, cases, days)
+        result = peak_workload(acc, peak_id, cases, days, organization_id=org)
     peak_name = next((p.name for p in procs if p.id == peak_id), None)
     return render_template("peak.html", processes=procs, result=result,
                            peak_id=peak_id, cases=cases, days=days, frist=frist,
@@ -203,9 +206,12 @@ def assignment():
     """Zuordnungssicht: links das Organigramm als Baum, rechts ein wählbarer
     Prozess. Per Drag'n'Drop werden Einheiten/Personen auf Aktivitäten gezogen."""
     account_id = current_account_id()
+    active_org = active_organization_id()
     oq = Organization.query
     if account_id is not None:
         oq = oq.filter_by(account_id=account_id)
+    if active_org is not None:
+        oq = oq.filter_by(id=active_org)
     organizations = []
     for org in oq.order_by(Organization.name).all():
         roots = [u for u in org.units if u.parent_id is None]
@@ -213,10 +219,7 @@ def assignment():
         organizations.append({"id": org.id, "name": org.name,
                               "roots": [_org_unit_tree(u) for u in roots]})
 
-    pq = Process.query
-    if account_id is not None:
-        pq = pq.filter_by(account_id=account_id)
-    processes = pq.order_by(Process.name).all()
+    processes = scoped_processes().order_by(Process.name).all()
     selected_id = request.args.get("process_id", type=int)
     if not selected_id and processes:
         selected_id = processes[0].id
@@ -289,7 +292,8 @@ def api_process_import():
         return jsonify({"ok": False, "error": "Keine gültige BPMN-Datei"}), 400
 
     process = Process(name=name, process_type=process_type,
-                      account_id=current_account_id(), bpmn_xml=xml)
+                      account_id=current_account_id(),
+                      organization_id=active_organization_id(), bpmn_xml=xml)
     db.session.add(process)
     db.session.commit()
     return jsonify({"ok": True, "id": process.id,
@@ -507,12 +511,16 @@ def process_edit(process_id=None):
     if request.method == "POST":
         form_parent_id = request.form.get("parent_process_id")
         owner_org_unit_id = request.form.get("owner_org_unit_id")
+        form_org_id = request.form.get("organization_id")
+        # Gewählte Organisation, sonst die aktive im Kopf (nichts vermischen).
+        org_id = int(form_org_id) if form_org_id else active_organization_id()
 
         if process is None:
             process = Process(
                 name=request.form["name"],
                 parent_process_id=int(form_parent_id) if form_parent_id else None,
                 account_id=current_account_id(),
+                organization_id=org_id,
             )
             db.session.add(process)
             db.session.commit()
@@ -528,6 +536,7 @@ def process_edit(process_id=None):
             process.name = request.form["name"]
             process.parent_process_id = int(form_parent_id) if form_parent_id else None
 
+        process.organization_id = org_id
         process.owner_org_unit_id = int(owner_org_unit_id) if owner_org_unit_id else None
         prio = request.form.get("priority", type=int)
         process.priority = prio if prio in (1, 2, 3) else 2
@@ -537,7 +546,13 @@ def process_edit(process_id=None):
 
         return redirect(url_for("process.bpmn_editor", process_id=process.id))
 
-    processes = Process.query.order_by(Process.name).all()
+    # Parent-Auswahl nur aus derselben Organisation (keine org-übergreifende
+    # Verschachtelung), und die Organisationen für die Auswahl.
+    processes = scoped_processes().order_by(Process.name).all()
+    org_query = Organization.query
+    if current_account_id() is not None:
+        org_query = org_query.filter_by(account_id=current_account_id())
+    organizations = org_query.order_by(Organization.name).all()
 
     return render_template(
         "process_edit.html",
@@ -545,6 +560,8 @@ def process_edit(process_id=None):
         parent=parent,
         processes=processes,
         owner_units=owner_units,
+        organizations=organizations,
+        active_organization_id=active_organization_id(),
     )
 
 
@@ -581,7 +598,7 @@ def process_delete(process_id):
 
 @process_bp.route("/process-map")
 def process_map():
-    processes = Process.query.filter_by(account_id=current_account_id()).order_by(Process.id).all()
+    processes = scoped_processes().order_by(Process.id).all()
     process_summaries = {process.id: process_cost_summary(process) for process in processes}
 
     return render_template(
@@ -594,7 +611,7 @@ def process_map():
 @process_bp.route("/processes")
 def process_list():
     processes = (
-        Process.query.filter_by(account_id=current_account_id())
+        scoped_processes()
         # parent_process_id IS NULL zuerst (MariaDB-kompatibel statt nullsfirst())
         .order_by(Process.parent_process_id.is_(None).desc(), Process.name).all()
     )

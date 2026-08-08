@@ -68,6 +68,10 @@ class Process(db.Model):
     __tablename__ = "processes"
     id = db.Column(db.Integer, primary_key=True)
     account_id = db.Column(db.Integer, db.ForeignKey("accounts.id"), nullable=True, index=True)
+    # Prozesse gehören zu genau EINER Organisation; die Prozesslandkarten der
+    # Organisationen bleiben dadurch getrennt (nichts wird vermischt). NULL =
+    # (noch) keiner Organisation zugeordnet, nur in der Gesamtsicht sichtbar.
+    organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"), nullable=True, index=True)
     name = db.Column(db.String(255), nullable=False)
     parent_process_id = db.Column(db.Integer, db.ForeignKey("processes.id"), nullable=True)
 
@@ -93,6 +97,7 @@ class Process(db.Model):
     nodes = db.relationship("Node", back_populates="process", foreign_keys="Node.process_id")
     owner_org_unit_id = db.Column(db.Integer, db.ForeignKey("org_units.id"), nullable=True)
     owner_org_unit = db.relationship("OrgUnit", foreign_keys=[owner_org_unit_id])
+    organization = db.relationship("Organization", foreign_keys=[organization_id])
 
 
 class Node(db.Model):

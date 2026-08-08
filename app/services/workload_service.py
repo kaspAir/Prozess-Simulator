@@ -32,10 +32,18 @@ def _covered_functions(person):
     return s
 
 
-def entry_processes(account_id):
+def _process_query(account_id, organization_id):
+    q = Process.query.filter_by(account_id=account_id)
+    if organization_id is not None:
+        q = q.filter_by(organization_id=organization_id)
+    return q
+
+
+def entry_processes(account_id, organization_id=None):
     """Prozesse, die NICHT als Subprozess eines anderen aufgerufen werden – nur
-    diese bekommen ein eigenes Mengengerüst (Subprozesse zählen über den Aufruf)."""
-    procs = Process.query.filter_by(account_id=account_id).order_by(Process.name).all()
+    diese bekommen ein eigenes Mengengerüst (Subprozesse zählen über den Aufruf).
+    Auf die aktive Organisation eingegrenzt, wenn eine gewählt ist."""
+    procs = _process_query(account_id, organization_id).order_by(Process.name).all()
     called = set()
     for p in procs:
         for m in re.finditer(r'pros:subprocessId="(\d+)"', effective_bpmn(p) or ""):
@@ -43,16 +51,19 @@ def entry_processes(account_id):
     return [p for p in procs if p.id not in called]
 
 
-def cross_process_workload(account_id, volumes, capacity_per_fte=ANNUAL_WORKING_MINUTES):
+def cross_process_workload(account_id, volumes, capacity_per_fte=ANNUAL_WORKING_MINUTES,
+                           organization_id=None):
     """volumes: {process_id: Fallzahl}. Gibt je Person Belastung/Kapazität/Auslastung
     zurück (Stunden), plus die nicht zugeordnete Belastung. capacity_per_fte ist die
     Kapazität einer 100%-Stelle im betrachteten Zeitraum (Standard: Jahr) – für die
-    Lastperiode wird stattdessen die Fenster-Kapazität übergeben."""
+    Lastperiode wird stattdessen die Fenster-Kapazität übergeben. Prozesse UND
+    Personen werden auf die aktive Organisation eingegrenzt, wenn eine gewählt ist –
+    damit werden die Kapazitätsbilder verschiedener Organisationen nicht vermischt."""
     load_min, unassigned_min = {}, 0.0
     needed_fn, needed_role = {}, {}   # person_id -> benötigte Funktions-/Rollen-IDs
     per_process = {}                  # person_id -> {process_id -> Minuten}
     proc_meta = {}                    # process_id -> {name, priority}
-    for pr in Process.query.filter_by(account_id=account_id).all():
+    for pr in _process_query(account_id, organization_id).all():
         vol = float(volumes.get(pr.id) or 0)
         if vol <= 0:
             continue
@@ -75,13 +86,19 @@ def cross_process_workload(account_id, volumes, capacity_per_fte=ANNUAL_WORKING_
                 needed_fn.setdefault(p["id"], set()).update(a.get("req_function_ids") or [])
                 needed_role.setdefault(p["id"], set()).update(a.get("req_role_ids") or [])
 
-    all_persons = Person.query.filter_by(account_id=account_id).all()
+    pq = Person.query.filter_by(account_id=account_id)
+    if organization_id is not None:
+        pq = pq.filter_by(organization_id=organization_id)
+    all_persons = pq.all()
     covered = {p.id: _covered_functions(p) for p in all_persons}
     covered_roles = {p.id: {r.id for r in p.roles} for p in all_persons}
     # Nur Personen, die tatsächlich eine Stelle besetzen, kommen als Aushilfe infrage
     # (Personen ohne Stelle im Organigramm werden nicht als «frei» vorgeschlagen).
-    placed = {u.person_id for u in (OrgUnit.query.join(Organization)
-              .filter(Organization.account_id == account_id, OrgUnit.person_id.isnot(None)).all())}
+    uq = (OrgUnit.query.join(Organization)
+          .filter(Organization.account_id == account_id, OrgUnit.person_id.isnot(None)))
+    if organization_id is not None:
+        uq = uq.filter(Organization.id == organization_id)
+    placed = {u.person_id for u in uq.all()}
 
     def capacity_min(p):
         return (p.fte if p.fte is not None else 1.0) * capacity_per_fte
@@ -175,7 +192,7 @@ def cross_process_workload(account_id, volumes, capacity_per_fte=ANNUAL_WORKING_
             "deficit_h": deficit / 60.0, "feasible": total_demand <= total_capacity}
 
 
-def peak_workload(account_id, peak_process_id, peak_cases, days):
+def peak_workload(account_id, peak_process_id, peak_cases, days, organization_id=None):
     """Lastperiode («Peak»): Fenster von `days` Arbeitstagen; im gewählten Prozess
     werden `peak_cases` Durchläufe in der Periode angenommen (absolute Zahl), die
     übrigen Prozesse laufen mit ihrem normalen Tagespensum weiter. Auslastung je
@@ -183,24 +200,25 @@ def peak_workload(account_id, peak_process_id, peak_cases, days):
     Peak sichtbar, den der Jahresschnitt verschluckt."""
     days = max(1, days)
     window_volumes = {}
-    for pr in Process.query.filter_by(account_id=account_id).all():
+    for pr in _process_query(account_id, organization_id).all():
         annual = pr.annual_cases or 0
         if pr.id == peak_process_id:
             window_volumes[pr.id] = max(0.0, peak_cases)
         elif annual > 0:
             window_volumes[pr.id] = (annual / WORKING_DAYS_PER_YEAR) * days
     window_cap = (ANNUAL_WORKING_MINUTES / WORKING_DAYS_PER_YEAR) * days
-    return cross_process_workload(account_id, window_volumes, capacity_per_fte=window_cap)
+    return cross_process_workload(account_id, window_volumes, capacity_per_fte=window_cap,
+                                  organization_id=organization_id)
 
 
-def process_activity_ampel(account_id, volumes):
+def process_activity_ampel(account_id, volumes, organization_id=None):
     """Ampel-Sicht fürs Dashboard: je Einstiegsprozess seine Aktivitäten mit
     rot/gelb/grün. Die Farbe einer Aktivität spiegelt die tatsächliche Überlast der
     Personen, die sie ausführen (prozessübergreifend gerechnet)."""
-    wl = cross_process_workload(account_id, volumes)
+    wl = cross_process_workload(account_id, volumes, organization_id=organization_id)
     putil = {r["id"]: r["util"] for r in wl["persons"]}
     out = []
-    for pr in entry_processes(account_id):
+    for pr in entry_processes(account_id, organization_id):
         vol = float(volumes.get(pr.id) or 0)
         if vol <= 0:
             continue

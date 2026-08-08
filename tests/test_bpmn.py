@@ -142,6 +142,61 @@ def test_bpmn_import_rejects_non_bpmn(app, client):
                        json={"name": "", "xml": TASK_XML}).status_code == 400
 
 
+def test_process_map_scoped_by_active_organization(app, client):
+    """Prozesse gehoeren zu einer Organisation: die aktive Organisation im Kopf
+    grenzt die Prozesslandkarte ein, damit nichts vermischt wird."""
+    acc, _, _ = make_account_with_role(app, ACCOUNT_ADMIN_ROLE, TEMPLATE_ROLES[ACCOUNT_ADMIN_ROLE],
+                                       email="orgscope@test.ch")
+    with app.app_context():
+        from app.models import db, Organization, Process
+        o1 = Organization(account_id=acc, name="Org Eins")
+        o2 = Organization(account_id=acc, name="Org Zwei")
+        db.session.add_all([o1, o2])
+        db.session.commit()
+        db.session.add_all([
+            Process(account_id=acc, organization_id=o1.id, name="Prozess Eins", bpmn_xml=TASK_XML),
+            Process(account_id=acc, organization_id=o2.id, name="Prozess Zwei", bpmn_xml=TASK_XML),
+        ])
+        db.session.commit()
+        o1_id, o2_id = o1.id, o2.id
+    login(client, "orgscope@test.ch")
+
+    # Gesamtsicht (keine aktive Organisation): beide sichtbar
+    html = client.get("/process-map").get_data(as_text=True)
+    assert "Prozess Eins" in html and "Prozess Zwei" in html
+
+    # Aktive Organisation = Org Eins -> nur deren Prozess, der andere nicht
+    with client.session_transaction() as sess:
+        sess["active_organization_id"] = o1_id
+    html = client.get("/process-map").get_data(as_text=True)
+    assert "Prozess Eins" in html and "Prozess Zwei" not in html
+
+    with client.session_transaction() as sess:
+        sess["active_organization_id"] = o2_id
+    html = client.get("/process-map").get_data(as_text=True)
+    assert "Prozess Zwei" in html and "Prozess Eins" not in html
+
+
+def test_bpmn_import_binds_active_organization(app, client):
+    """Import bindet den neuen Prozess an die aktive Organisation."""
+    acc, _, _ = make_account_with_role(app, ACCOUNT_ADMIN_ROLE, TEMPLATE_ROLES[ACCOUNT_ADMIN_ROLE],
+                                       email="orgimport@test.ch")
+    with app.app_context():
+        from app.models import db, Organization
+        org = Organization(account_id=acc, name="Zielorganisation")
+        db.session.add(org)
+        db.session.commit()
+        org_id = org.id
+    login(client, "orgimport@test.ch")
+    with client.session_transaction() as sess:
+        sess["active_organization_id"] = org_id
+    body = client.post("/api/processes/import",
+                       json={"name": "Importiert in Org", "xml": TASK_XML}).get_json()
+    with app.app_context():
+        from app.models import Process
+        assert Process.query.get(body["id"]).organization_id == org_id
+
+
 def test_bpmn_save_requires_manage_permission(app, client):
     make_account_with_role(app, "Viewer", {P_DASHBOARD_VIEW}, email="bpmn-viewer@test.ch")
     login(client, "bpmn-viewer@test.ch")

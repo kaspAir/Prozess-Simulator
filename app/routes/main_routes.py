@@ -102,7 +102,10 @@ def dashboard():
         if current_user.is_super_admin:
             return redirect(url_for("admin.accounts"))
         return render_template("dashboard.html", workload=None, bpmn_summaries=[])
-    processes = Process.query.filter_by(account_id=account_id).order_by(Process.id).all()
+    from app.auth.service import active_organization_id
+    from app.services.process_scope import scoped_processes
+    org_id = active_organization_id()
+    processes = scoped_processes().order_by(Process.id).all()
 
     from app.services.bpmn_simulation import analyze_bpmn
     from app.services.workload_service import process_activity_ampel, entry_processes
@@ -110,8 +113,8 @@ def dashboard():
     # Ampel-Sicht: je Prozess seine Aktivitäten rot/gelb/grün (Farbe = tatsächliche
     # Personen-Überlast), aus dem gespeicherten Mengengerüst. Ohne Mengengerüst leer.
     volumes = {p.id: p.annual_cases for p in processes if (p.annual_cases or 0) > 0}
-    ampel = process_activity_ampel(account_id, volumes) if volumes else None
-    entry_procs = entry_processes(account_id)   # für das Mengengerüst-Formular
+    ampel = process_activity_ampel(account_id, volumes, org_id) if volumes else None
+    entry_procs = entry_processes(account_id, org_id)   # für das Mengengerüst-Formular
 
     # BPMN-Kostenübersicht (Aufwand/Kosten je Prozess aus dem BPMN-Modell)
     bpmn_summaries = []
