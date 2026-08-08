@@ -278,11 +278,14 @@ def api_process_import():
     weil der PHP-Reverse-Proxy kein multipart weiterreicht."""
     data = request.get_json(silent=True) or {}
     name = (data.get("name") or "").strip()
-    xml = (data.get("xml") or "").strip()
+    # BOM entfernen (manche Editoren schreiben ihn) und trimmen.
+    xml = (data.get("xml") or "").lstrip("﻿").strip()
     process_type = (data.get("process_type") or "").strip() or None
     if not name:
         return jsonify({"ok": False, "error": "Name fehlt"}), 400
-    if not xml.startswith("<?xml") and "<bpmn" not in xml:
+    # BPMN-Marker tolerant: <definitions> kommt auch ohne bpmn:-Präfix vor
+    # (Default-Namespace), wie es z. B. Camunda/Signavio exportieren.
+    if "definitions" not in xml.lower():
         return jsonify({"ok": False, "error": "Keine gültige BPMN-Datei"}), 400
 
     process = Process(name=name, process_type=process_type,
