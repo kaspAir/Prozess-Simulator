@@ -111,6 +111,37 @@ def test_process_type_saved_and_on_map(app, client):
     assert "Kernprozess" in client.get("/process-map").get_data(as_text=True)
 
 
+def test_bpmn_import_creates_process_on_map(app, client):
+    """Import legt einen neuen Hauptprozess an (mit Typ) und öffnet ihn; er
+    erscheint danach in der Prozesslandkarte."""
+    make_account_with_role(app, ACCOUNT_ADMIN_ROLE, TEMPLATE_ROLES[ACCOUNT_ADMIN_ROLE],
+                           email="import-admin@test.ch")
+    login(client, "import-admin@test.ch")
+    r = client.post("/api/processes/import",
+                    json={"name": "Importierter Prozess", "process_type": "Kernprozess",
+                          "xml": TASK_XML})
+    body = r.get_json()
+    assert body["ok"] is True
+    assert "/bpmn" in body["redirect"]
+    with app.app_context():
+        from app.models import Process
+        p = Process.query.get(body["id"])
+        assert p.parent_process_id is None            # Hauptprozess -> in der Landkarte
+        assert p.process_type == "Kernprozess"
+        assert "Prüfen" in (p.bpmn_xml or "")
+    assert "Importierter Prozess" in client.get("/process-map").get_data(as_text=True)
+
+
+def test_bpmn_import_rejects_non_bpmn(app, client):
+    make_account_with_role(app, ACCOUNT_ADMIN_ROLE, TEMPLATE_ROLES[ACCOUNT_ADMIN_ROLE],
+                           email="import-admin2@test.ch")
+    login(client, "import-admin2@test.ch")
+    assert client.post("/api/processes/import",
+                       json={"name": "X", "xml": "kein xml"}).status_code == 400
+    assert client.post("/api/processes/import",
+                       json={"name": "", "xml": TASK_XML}).status_code == 400
+
+
 def test_bpmn_save_requires_manage_permission(app, client):
     make_account_with_role(app, "Viewer", {P_DASHBOARD_VIEW}, email="bpmn-viewer@test.ch")
     login(client, "bpmn-viewer@test.ch")

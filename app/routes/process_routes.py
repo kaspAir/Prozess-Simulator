@@ -270,6 +270,29 @@ def api_assign_activity(process_id):
                     "person_count": resolved["person_count"]})
 
 
+@process_bp.route("/api/processes/import", methods=["POST"])
+def api_process_import():
+    """Legt aus einer mitgebrachten BPMN-Datei einen NEUEN Prozess an (Hauptprozess,
+    erscheint damit in der Prozesslandkarte). Name und Prozesstyp kommen aus dem
+    Import-Dialog. Rein clientseitiger Datei-Upload (Base64/Text im JSON-Body),
+    weil der PHP-Reverse-Proxy kein multipart weiterreicht."""
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    xml = (data.get("xml") or "").strip()
+    process_type = (data.get("process_type") or "").strip() or None
+    if not name:
+        return jsonify({"ok": False, "error": "Name fehlt"}), 400
+    if not xml.startswith("<?xml") and "<bpmn" not in xml:
+        return jsonify({"ok": False, "error": "Keine gültige BPMN-Datei"}), 400
+
+    process = Process(name=name, process_type=process_type,
+                      account_id=current_account_id(), bpmn_xml=xml)
+    db.session.add(process)
+    db.session.commit()
+    return jsonify({"ok": True, "id": process.id,
+                    "redirect": url_for("process.bpmn_editor", process_id=process.id)})
+
+
 @process_bp.route("/process/<int:process_id>")
 def process_graph(process_id):
     process = Process.query.get_or_404(process_id)

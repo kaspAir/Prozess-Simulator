@@ -1,0 +1,87 @@
+{# Wiederverwendbarer BPMN-Import-Dialog: legt aus einer mitgebrachten .bpmn-Datei
+   einen neuen Prozess an (Name + Prozesstyp) und öffnet ihn. Clientseitiger
+   Datei-Upload (FileReader → JSON), weil der PHP-Proxy kein multipart weiterreicht. #}
+<button type="button" class="button" id="bpmn-import-open">BPMN importieren</button>
+
+<div id="bpmn-import-modal" class="bpmn-import-backdrop" hidden>
+  <div class="bpmn-import-card">
+    <h3>BPMN-Prozess importieren</h3>
+    <label>BPMN-Datei
+      <input type="file" id="bpmn-import-file" accept=".bpmn,.xml,application/xml,text/xml">
+    </label>
+    <label>Name
+      <input type="text" id="bpmn-import-name" placeholder="Prozessname">
+    </label>
+    <label>Prozesstyp (für die Prozesslandkarte, optional)
+      <input type="text" id="bpmn-import-type" list="bpmn-import-types"
+             placeholder="z. B. Kernprozess, Führungsprozess, Unterstützungsprozess">
+      <datalist id="bpmn-import-types">
+        <option value="Führungsprozess">
+        <option value="Kernprozess">
+        <option value="Unterstützungsprozess">
+      </datalist>
+    </label>
+    <p class="bpmn-import-status" id="bpmn-import-status"></p>
+    <div class="bpmn-import-actions">
+      <button type="button" class="button link-warning" id="bpmn-import-cancel">Abbrechen</button>
+      <button type="button" class="button" id="bpmn-import-go">Importieren &amp; öffnen</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .bpmn-import-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: flex; align-items: center; justify-content: center; z-index: 1000; }
+  .bpmn-import-card { background: var(--surface); color: var(--ink);
+    border: 1px solid var(--border); border-radius: 10px; padding: 20px; width: min(460px, 92vw);
+    box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+  .bpmn-import-card h3 { margin: 0 0 12px; font-family: var(--font-display); }
+  .bpmn-import-card label { display: block; margin: 10px 0; font-size: .9em; }
+  .bpmn-import-card input[type=text], .bpmn-import-card input[type=file] {
+    display: block; width: 100%; margin-top: 4px; padding: 6px 8px; box-sizing: border-box; }
+  .bpmn-import-status { min-height: 1.2em; color: var(--status-red); font-size: .85em; margin: 8px 0 0; }
+  .bpmn-import-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+</style>
+
+<script>
+(function () {
+  const open = document.getElementById('bpmn-import-open');
+  const modal = document.getElementById('bpmn-import-modal');
+  const fileI = document.getElementById('bpmn-import-file');
+  const nameI = document.getElementById('bpmn-import-name');
+  const typeI = document.getElementById('bpmn-import-type');
+  const status = document.getElementById('bpmn-import-status');
+  let xmlText = '';
+
+  function show(v) { modal.hidden = !v; if (!v) status.textContent = ''; }
+  open.addEventListener('click', () => show(true));
+  document.getElementById('bpmn-import-cancel').addEventListener('click', () => show(false));
+  modal.addEventListener('click', e => { if (e.target === modal) show(false); });
+
+  fileI.addEventListener('change', () => {
+    const f = fileI.files[0];
+    if (!f) return;
+    if (!nameI.value.trim()) nameI.value = f.name.replace(/\.(bpmn|xml)$/i, '');
+    const rd = new FileReader();
+    rd.onload = () => { xmlText = String(rd.result); };
+    rd.onerror = () => { status.textContent = 'Datei konnte nicht gelesen werden.'; };
+    rd.readAsText(f);
+  });
+
+  document.getElementById('bpmn-import-go').addEventListener('click', async () => {
+    const name = nameI.value.trim();
+    if (!xmlText) { status.textContent = 'Bitte zuerst eine BPMN-Datei wählen.'; return; }
+    if (!name) { status.textContent = 'Bitte einen Namen angeben.'; return; }
+    status.textContent = 'Importiere …';
+    try {
+      const resp = await fetch('{{ url_for("process.api_process_import") }}', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, process_type: typeI.value.trim(), xml: xmlText }),
+      });
+      const data = await resp.json();
+      if (data.ok) { window.location.href = data.redirect; }
+      else { status.textContent = 'Fehler: ' + (data.error || 'Import fehlgeschlagen'); }
+    } catch (err) { status.textContent = 'Serverfehler beim Import.'; }
+  });
+})();
+</script>

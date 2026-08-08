@@ -6,6 +6,7 @@
         <div>
             <a class="button" href="{{ url_for('process.process_map') }}">Prozesslandkarte</a>
             <a class="button" href="{{ url_for('process.process_edit') }}">Prozess hinzufügen</a>
+            {% include "_bpmn_import.html" %}
         </div>
     </div>
 
