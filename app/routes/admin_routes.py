@@ -149,6 +149,11 @@ def assign_role():
     membership = db.session.get(Membership, membership_id)
     if not membership or membership.account_id != account.id:
         abort(404)
+    role = db.session.get(AccessRole, role_id)
+    org = db.session.get(Organization, org_id) if org_id else None
+    if role is None or role.account_id != account.id or (org and org.account_id != account.id):
+        abort(404)
+    where = f"für Organisation «{org.name}»" if org else "accountweit (alle Organisationen)"
     exists = RoleAssignment.query.filter_by(
         membership_id=membership_id, access_role_id=role_id, organization_id=org_id
     ).first()
@@ -156,7 +161,9 @@ def assign_role():
         db.session.add(RoleAssignment(
             membership_id=membership_id, access_role_id=role_id, organization_id=org_id))
         db.session.commit()
-        flash("Rolle zugewiesen.", "success")
+        flash(f"Rolle «{role.name}» {where} zugewiesen.", "success")
+    else:
+        flash(f"Rolle «{role.name}» {where} war bereits zugewiesen.", "success")
     return redirect(url_for("admin.members"))
 
 

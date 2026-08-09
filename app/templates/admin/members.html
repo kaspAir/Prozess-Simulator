@@ -6,6 +6,14 @@
      «Organisation» an – mehrere pro Mandant sind möglich.</p>
 
   <h3>Mitglieder & Rollen</h3>
+  <p style="background:#fef9c3;border:1px solid #fde047;border-radius:6px;padding:8px 12px;font-size:.9em;">
+    <strong>So beschränkst du ein Mitglied auf EINE Organisation:</strong> Rolle wählen,
+    rechts die <em>Organisation</em> wählen und <strong>+</strong> klicken (die Auswahl setzt
+    sich danach wieder auf «accountweit» zurück – das ist normal, die Zuweisung ist gespeichert
+    und erscheint links als «Rolle @ Organisation»). Danach die Zeile
+    <strong>«… (accountweit)» mit ✕ entfernen</strong> – sonst sieht das Mitglied weiterhin
+    ALLE Organisationen des Mandanten.
+  </p>
   <table style="width:100%;border-collapse:collapse;">
     <thead><tr style="text-align:left;border-bottom:2px solid #e5e7eb;">
       <th style="padding:6px;">Benutzer</th><th>Zugewiesene Rollen</th><th>Rolle hinzufügen</th>
@@ -38,9 +46,11 @@
           {% for asg in m.assignments %}
             <div style="margin:2px 0;">
               {{ asg.access_role.name }}
-              <span style="color:#666;">
-                {% if asg.organization_id %}@ {{ asg.organization.name }}{% else %}(accountweit){% endif %}
-              </span>
+              {% if asg.organization_id %}
+                <span style="color:#166534;">@ {{ asg.organization.name }}</span>
+              {% else %}
+                <span style="color:#b45309;" title="sieht ALLE Organisationen des Mandanten">(accountweit – sieht alles)</span>
+              {% endif %}
               <form method="post" action="{{ url_for('admin.unassign_role', assignment_id=asg.id) }}" style="display:inline;margin:0;">
                 <button type="submit" title="entfernen" style="border:none;background:none;color:#b91c1c;cursor:pointer;">✕</button>
               </form>
