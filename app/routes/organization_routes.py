@@ -11,8 +11,11 @@ from app.models import (
 )
 
 from app.services.organization_service import get_organization_overview
+from app.services.process_scope import scoped_roles, scoped_functions
 from app.auth.permissions import P_DASHBOARD_VIEW, P_ORGCHART_MANAGE, P_PERSONS_MANAGE
-from app.auth.service import user_has_permission, current_account_id
+from app.auth.service import (
+    user_has_permission, current_account_id, active_organization_id, accessible_organizations,
+)
 
 organization_bp = Blueprint("organization", __name__, url_prefix="/organization")
 
@@ -37,6 +40,16 @@ def _acc():
 
 def _ids(field):
     return [int(x) for x in request.form.getlist(field) if x]
+
+
+def _target_org_id():
+    """Organisation, der ein NEUER Datensatz (Rolle/Funktion) zugeordnet wird:
+    Formularwert, sonst die aktive Organisation im Kopf, sonst die gerade auf der
+    Organisationsseite betrachtete Organisation – so bleibt alles je Mandant
+    getrennt und die Anlage landet dort, wo man gerade arbeitet."""
+    return (request.form.get("organization_id", type=int)
+            or active_organization_id()
+            or session.get("org_overview_id"))
 
 
 # ── Übersicht ────────────────────────────────────────────────────────────
@@ -194,8 +207,8 @@ def org_unit_edit(unit_id=None):
         unit.sort_order = request.form.get("sort_order", type=int) or 0
         unit.description = (request.form.get("description") or "").strip() or None
         unit.person_id = request.form.get("person_id", type=int) or None
-        unit.roles = Role.query.filter(Role.id.in_(_ids("role_ids")),
-                                       Role.account_id == _acc()).all() if _ids("role_ids") else []
+        unit.roles = (scoped_roles(Role.query.filter(Role.id.in_(_ids("role_ids")))).all()
+                      if _ids("role_ids") else [])
         # Rollen der Stelle automatisch der Person zuordnen
         if unit.person_id and unit.roles:
             person = db.session.get(Person, unit.person_id)
@@ -216,8 +229,11 @@ def org_unit_edit(unit_id=None):
         abort(404)
     all_units = OrgUnit.query.filter_by(organization_id=organization.id).order_by(
         OrgUnit.sort_order, OrgUnit.name).all()
-    persons = Person.query.filter_by(account_id=_acc()).order_by(Person.name).all()
-    roles = Role.query.filter_by(account_id=_acc()).order_by(Role.name).all()
+    # Personen und Rollen nur aus DIESER Organisation (kein Mandanten-Übergriff).
+    persons = (Person.query.filter_by(account_id=_acc(), organization_id=organization.id)
+               .order_by(Person.name).all())
+    roles = (Role.query.filter_by(account_id=_acc(), organization_id=organization.id)
+             .order_by(Role.name).all())
     return render_template(
         "org_unit_edit.html", unit=unit, organization=organization,
         all_units=all_units, persons=persons, roles=roles,
@@ -249,18 +265,21 @@ def role_edit(role_id=None):
     if request.method == "POST":
         role.name = (request.form.get("name") or "").strip()
         role.parent_id = request.form.get("parent_id", type=int) or None
-        role.functions = Function.query.filter(Function.id.in_(_ids("function_ids")),
-                                                Function.account_id == _acc()).all() if _ids("function_ids") else []
+        role.functions = (scoped_functions(Function.query.filter(Function.id.in_(_ids("function_ids")))).all()
+                          if _ids("function_ids") else [])
         if role.id is None:
             role.account_id = _acc()
+            role.organization_id = _target_org_id()
             db.session.add(role)
         db.session.commit()
         flash("Rolle gespeichert.", "success")
         return redirect(url_for("organization.organization"))
 
-    roles = Role.query.filter_by(account_id=_acc()).order_by(Role.name).all()
-    functions = Function.query.filter_by(account_id=_acc()).order_by(Function.name).all()
-    return render_template("role_edit.html", role=role, roles=roles, functions=functions)
+    roles = scoped_roles().order_by(Role.name).all()
+    functions = scoped_functions().order_by(Function.name).all()
+    return render_template("role_edit.html", role=role, roles=roles, functions=functions,
+                           organizations=accessible_organizations(current_user),
+                           preselect_org_id=_target_org_id())
 
 
 # ── Funktion ──────────────────────────────────────────────────────────────
@@ -277,12 +296,15 @@ def function_edit(function_id=None):
         function.description = (request.form.get("description") or "").strip() or None
         if function.id is None:
             function.account_id = _acc()
+            function.organization_id = _target_org_id()
             db.session.add(function)
         db.session.commit()
         flash("Funktion gespeichert.", "success")
         return redirect(url_for("organization.organization"))
 
-    return render_template("function_edit.html", function=function)
+    return render_template("function_edit.html", function=function,
+                           organizations=accessible_organizations(current_user),
+                           preselect_org_id=_target_org_id())
 
 
 # ── Person ──────────────────────────────────────────────────────────────────
@@ -300,11 +322,9 @@ def person_edit(person_id=None):
         salary = request.form.get("annual_salary", type=float) or 0
         fte = request.form.get("fte", type=float) or 0
         active = bool(request.form.get("active"))
-        sel_roles = (Role.query.filter(Role.id.in_(_ids("role_ids")),
-                                       Role.account_id == _acc()).all()
+        sel_roles = (scoped_roles(Role.query.filter(Role.id.in_(_ids("role_ids")))).all()
                      if _ids("role_ids") else [])
-        sel_functions = (Function.query.filter(Function.id.in_(_ids("function_ids")),
-                                               Function.account_id == _acc()).all()
+        sel_functions = (scoped_functions(Function.query.filter(Function.id.in_(_ids("function_ids")))).all()
                          if _ids("function_ids") else [])
 
         # Validierung (B-03 FTE ≤ 1.0, B-04 keine Negativwerte)
@@ -317,9 +337,9 @@ def person_edit(person_id=None):
         if errors:
             for e in errors:
                 flash(e, "error")
-            organizations = Organization.query.filter_by(account_id=_acc()).order_by(Organization.name).all()
-            roles = Role.query.filter_by(account_id=_acc()).order_by(Role.name).all()
-            functions = Function.query.filter_by(account_id=_acc()).order_by(Function.name).all()
+            organizations = accessible_organizations(current_user)
+            roles = scoped_roles().order_by(Role.name).all()
+            functions = scoped_functions().order_by(Function.name).all()
             # transientes Objekt mit den Eingaben, damit das Formular sie behaelt
             form_person = Person(name=name, organization_id=org_id,
                                  annual_salary=salary, fte=fte, active=active)
@@ -343,8 +363,8 @@ def person_edit(person_id=None):
         flash("Person gespeichert.", "success")
         return redirect(url_for("organization.organization", org_id=person.organization_id))
 
-    organizations = Organization.query.filter_by(account_id=_acc()).order_by(Organization.name).all()
-    roles = Role.query.filter_by(account_id=_acc()).order_by(Role.name).all()
-    functions = Function.query.filter_by(account_id=_acc()).order_by(Function.name).all()
+    organizations = accessible_organizations(current_user)
+    roles = scoped_roles().order_by(Role.name).all()
+    functions = scoped_functions().order_by(Function.name).all()
     return render_template("person_edit.html", person=person, organizations=organizations,
                            roles=roles, functions=functions)

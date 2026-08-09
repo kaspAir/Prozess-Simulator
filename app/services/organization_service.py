@@ -35,8 +35,14 @@ def get_organization_overview(org_id=None):
             .all()
         )
 
-    roles = Role.query.filter_by(account_id=account_id).order_by(Role.name).all()
-    functions = Function.query.filter_by(account_id=account_id).order_by(Function.name).all()
+    # Rollen und Funktionen NUR der angezeigten Organisation (je Mandant getrennt).
+    if selected_org:
+        roles = (Role.query.filter_by(account_id=account_id, organization_id=selected_org.id)
+                 .order_by(Role.name).all())
+        functions = (Function.query.filter_by(account_id=account_id, organization_id=selected_org.id)
+                     .order_by(Function.name).all())
+    else:
+        roles, functions = [], []
 
     return {
         "organizations": organizations,

@@ -78,6 +78,42 @@ def import_model(account_id, data):
                 unit_obj[u.get("id")].parent_id = unit_obj[pid].id
     db.session.flush()
 
+    # 5b) Rollen/Funktionen ihrer Organisation zuordnen (Mandantentrennung).
+    #     Genau eine importierte Organisation -> alle zuweisen. Mehrere -> aus der
+    #     tatsächlichen Nutzung (Personen/Stellen) eindeutig ableiten; mehrdeutige
+    #     bleiben offen und werden ggf. später (Backfill/Dedup) geklärt.
+    imported_orgs = list(org_obj.values())
+    if len(imported_orgs) == 1:
+        only_id = imported_orgs[0].id
+        for o in list(func_obj.values()) + list(role_obj.values()):
+            o.organization_id = only_id
+    else:
+        role_orgs, func_orgs = {}, {}
+        for p in data.get("persons", []):
+            po = person_obj.get(p.get("id"))
+            oid = po.organization_id if po else None
+            if oid is None:
+                continue
+            for i in p.get("role_ids", []):
+                if i in role_obj:
+                    role_orgs.setdefault(role_obj[i], set()).add(oid)
+            for i in p.get("function_ids", []):
+                if i in func_obj:
+                    func_orgs.setdefault(func_obj[i], set()).add(oid)
+        for org in data.get("organizations", []):
+            oid = org_obj[org.get("id")].id
+            for u in org.get("units", []):
+                for i in u.get("role_ids", []):
+                    if i in role_obj:
+                        role_orgs.setdefault(role_obj[i], set()).add(oid)
+        for ro, orgs in role_orgs.items():
+            if len(orgs) == 1:
+                ro.organization_id = next(iter(orgs))
+        for fo, orgs in func_orgs.items():
+            if len(orgs) == 1:
+                fo.organization_id = next(iter(orgs))
+    db.session.flush()
+
     # 6) Prozesse (BPMN ist das führende Modell). Zwei Durchgänge wegen
     #    parent_process- und subprocess-Selbstbezügen. IDs in den pros:-Feldern
     #    werden auf die neu erzeugten Datensätze umgeschrieben.

@@ -18,7 +18,9 @@ def _canon_map(objs):
     canon_by_name, id_map, obj_by_id, dups = {}, {}, {}, []
     for o in objs:
         obj_by_id[o.id] = o
-        key = (o.name or "").strip().lower()
+        # Schlüssel je Organisation: gleichnamige Rollen/Funktionen/Personen
+        # verschiedener Mandanten bleiben getrennt (kein Verschmelzen über Orgs).
+        key = (getattr(o, "organization_id", None), (o.name or "").strip().lower())
         if key not in canon_by_name:
             canon_by_name[key] = o
         canon = canon_by_name[key]

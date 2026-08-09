@@ -19,9 +19,11 @@ def test_import_route_urlencoded(app, client):
         assert Organization.query.filter_by(name="Importierte Org").first() is not None
 
 
-def test_import_route_auto_merges_duplicates(app, client):
-    """Nach jedem Import werden gleichnamige Rollen/Funktionen automatisch
-    zusammengeführt – zweimaliger Import erzeugt keine Katalog-Dubletten."""
+def test_import_dedup_is_per_organization(app, client):
+    """Dedup wirkt JE ORGANISATION (Mandant): innerhalb einer Organisation gibt es
+    keine Katalog-Dubletten. Zwei Importe legen (additiv) zwei Organisationen an –
+    jede hat ihren eigenen, dublettenfreien Katalog (nichts wird über Mandanten
+    hinweg vermischt)."""
     make_account_with_role(app, ACCOUNT_ADMIN_ROLE, TEMPLATE_ROLES[ACCOUNT_ADMIN_ROLE],
                            email="imp2@test.ch")
     login(client, "imp2@test.ch")
@@ -34,10 +36,13 @@ def test_import_route_auto_merges_duplicates(app, client):
                         follow_redirects=True)
         assert r.status_code == 200
     with app.app_context():
-        from app.models import Function, Role, Account
+        from app.models import Function, Role, Account, Organization
         acc = Account.query.filter_by(name="TestAcc").first()
-        assert Function.query.filter_by(account_id=acc.id, name="Prüfen").count() == 1
-        assert Role.query.filter_by(account_id=acc.id, name="Jurist").count() == 1
+        orgs = Organization.query.filter_by(account_id=acc.id, name="Org").all()
+        assert len(orgs) == 2                     # additiver Import -> zwei Mandanten
+        for org in orgs:                          # je Mandant genau eine Instanz
+            assert Function.query.filter_by(organization_id=org.id, name="Prüfen").count() == 1
+            assert Role.query.filter_by(organization_id=org.id, name="Jurist").count() == 1
 
 
 def test_export_import_roundtrip(app):

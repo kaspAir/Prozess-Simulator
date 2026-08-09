@@ -8,7 +8,7 @@ from app.auth.permissions import P_DASHBOARD_VIEW, P_PROCESSES_MANAGE, P_SIMULAT
 from app.auth.service import (
     user_has_permission, current_account_id, active_organization_id, accessible_organizations,
 )
-from app.services.process_scope import scoped_processes
+from app.services.process_scope import scoped_processes, scoped_roles, scoped_functions
 from app.calculations import (
     node_position_cost,
     process_position_cost,
@@ -61,14 +61,21 @@ def bpmn_editor(process_id):
     den Katalog (Funktionen/Rollen/Stellen des Accounts) für die Aktivitäts-Attribute."""
     process = Process.query.get_or_404(process_id)
     acc = current_account_id()
-    roles = Role.query.filter_by(account_id=acc).order_by(Role.name).all()
-    functions = Function.query.filter_by(account_id=acc).order_by(Function.name).all()
-    orgs = Organization.query.filter_by(account_id=acc).order_by(Organization.name).all()
-    all_units = (
-        OrgUnit.query.join(Organization)
-        .filter(Organization.account_id == acc)
-        .order_by(Organization.name, OrgUnit.sort_order, OrgUnit.name).all()
-    )
+    # Katalog NUR aus der Organisation des Prozesses (kein Mandanten-Übergriff).
+    org_id = process.organization_id
+    role_q = Role.query.filter_by(account_id=acc)
+    func_q = Function.query.filter_by(account_id=acc)
+    org_q = Organization.query.filter_by(account_id=acc)
+    unit_q = OrgUnit.query.join(Organization).filter(Organization.account_id == acc)
+    if org_id is not None:
+        role_q = role_q.filter_by(organization_id=org_id)
+        func_q = func_q.filter_by(organization_id=org_id)
+        org_q = org_q.filter_by(id=org_id)
+        unit_q = unit_q.filter(Organization.id == org_id)
+    roles = role_q.order_by(Role.name).all()
+    functions = func_q.order_by(Function.name).all()
+    orgs = org_q.order_by(Organization.name).all()
+    all_units = unit_q.order_by(Organization.name, OrgUnit.sort_order, OrgUnit.name).all()
     catalog = {
         # Organisationen (Lane-fähig auf oberster Ebene)
         "organizations": [{"id": o.id, "name": o.name} for o in orgs],
@@ -357,15 +364,15 @@ def node_edit(process_id, node_id=None):
     process = Process.query.get_or_404(process_id)
     node = Node.query.get(node_id) if node_id else Node(process=process, type="task", sort_order=0, x=120, y=160)
 
-    roles = Role.query.order_by(Role.name).all()
-    subprocesses = Process.query.filter(Process.id != process.id).order_by(Process.name).all()
+    roles = scoped_roles().order_by(Role.name).all()
+    subprocesses = scoped_processes(Process.query.filter(Process.id != process.id)).order_by(Process.name).all()
     positions = (
         OrgUnit.query
         .filter_by(unit_type="Stelle")
         .order_by(OrgUnit.organization_id, OrgUnit.sort_order, OrgUnit.name)
         .all()
     )
-    functions = Function.query.order_by(Function.name).all()
+    functions = scoped_functions().order_by(Function.name).all()
 
     if request.method == "POST":
         node.process = process
@@ -385,9 +392,10 @@ def node_edit(process_id, node_id=None):
         position_ids = [int(x) for x in request.form.getlist("position_ids")]
         function_ids = [int(x) for x in request.form.getlist("required_function_ids")]
 
-        node.roles = Role.query.filter(Role.id.in_(role_ids)).all() if role_ids else []
+        node.roles = scoped_roles(Role.query.filter(Role.id.in_(role_ids))).all() if role_ids else []
         node.assigned_positions = OrgUnit.query.filter(OrgUnit.id.in_(position_ids)).all() if position_ids else []
-        node.required_functions = Function.query.filter(Function.id.in_(function_ids)).all() if function_ids else []
+        node.required_functions = (scoped_functions(Function.query.filter(Function.id.in_(function_ids))).all()
+                                    if function_ids else [])
 
         db.session.add(node)
         db.session.commit()

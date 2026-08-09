@@ -6,6 +6,18 @@
     <label>Name
         <input name="name" value="{{ function.name or '' }}" required>
     </label>
+    {% if function.id is none %}
+    <label>Organisation (Mandant)
+        <select name="organization_id" required>
+            <option value="">— bitte wählen —</option>
+            {% for org in organizations %}
+                <option value="{{ org.id }}" {% if preselect_org_id == org.id %}selected{% endif %}>{{ org.name }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    {% elif function.organization %}
+    <p class="small">Organisation: <strong>{{ function.organization.name }}</strong></p>
+    {% endif %}
     <label>Beschreibung
         <textarea name="description">{{ function.description or '' }}</textarea>
     </label>

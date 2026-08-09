@@ -179,9 +179,13 @@ class Role(db.Model):
     __tablename__ = "roles"
     id = db.Column(db.Integer, primary_key=True)
     account_id = db.Column(db.Integer, db.ForeignKey("accounts.id"), nullable=True, index=True)
+    # Rollen gehören zu genau EINER Organisation (Mandant); nichts ist mandanten-
+    # übergreifend sichtbar. NULL = (noch) nicht zugeordnet (nur Super-Admin/Gesamtsicht).
+    organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"), nullable=True, index=True)
     name = db.Column(db.String(255), nullable=False)
     parent_id = db.Column(db.Integer, db.ForeignKey("roles.id"), nullable=True)
     parent = db.relationship("Role", remote_side=[id], backref="children")
+    organization = db.relationship("Organization", foreign_keys=[organization_id])
     functions = db.relationship("Function", secondary=role_function, back_populates="roles")
     persons = db.relationship("Person", secondary=person_role, back_populates="roles")
     activities = db.relationship("Activity", secondary=role_activity, back_populates="roles")
@@ -193,8 +197,11 @@ class Function(db.Model):
     __tablename__ = "functions"
     id = db.Column(db.Integer, primary_key=True)
     account_id = db.Column(db.Integer, db.ForeignKey("accounts.id"), nullable=True, index=True)
+    # Funktionen gehören zu genau EINER Organisation (Mandant), analog Rollen.
+    organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"), nullable=True, index=True)
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text, nullable=True)
+    organization = db.relationship("Organization", foreign_keys=[organization_id])
     roles = db.relationship("Role", secondary=role_function, back_populates="functions")
     persons = db.relationship("Person", secondary=person_function, back_populates="functions")
 

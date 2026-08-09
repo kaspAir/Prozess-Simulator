@@ -105,6 +105,32 @@ def ensure_process_organization_id_column():
         db.session.commit()
 
 
+def ensure_role_function_organization_columns():
+    """Ergaenzt organization_id in roles und functions (datenerhaltend)."""
+    insp = inspect(db.engine)
+    tables = set(insp.get_table_names())
+    for table in ("roles", "functions"):
+        if table not in tables:
+            continue
+        cols = [c["name"] for c in insp.get_columns(table)]
+        if "organization_id" not in cols:
+            db.session.execute(text(f"ALTER TABLE {table} ADD COLUMN organization_id INTEGER"))
+            print(f"  + Spalte organization_id zu {table} ergaenzt")
+            db.session.commit()
+
+
+def backfill_role_function_organization():
+    """Ordnet bestehende Rollen/Funktionen ihrer Organisation zu (verlustfrei,
+    geteilte werden je Mandant dupliziert)."""
+    insp = inspect(db.engine)
+    if "roles" not in set(insp.get_table_names()):
+        return
+    from app.services.tenant_backfill import backfill_all
+    changed = backfill_all()
+    if changed:
+        print(f"  + {changed} Rolle(n)/Funktion(en) je Mandant getrennt (Backfill)")
+
+
 def backfill_process_organization():
     """Ordnet bestehende Prozesse ohne Organisation einer zu: nach dem Process
     Owner (dessen Organisation), sonst – wenn der Account genau EINE Organisation
@@ -141,7 +167,9 @@ def run():
         ensure_process_priority_column()
         ensure_process_type_column()
         ensure_process_organization_id_column()
+        ensure_role_function_organization_columns()
         backfill_process_organization()
+        backfill_role_function_organization()
 
         # 1) Bootstrap-Account
         account = Account.query.first()

@@ -6,6 +6,18 @@
     <label>Name
         <input name="name" value="{{ role.name or '' }}" required>
     </label>
+    {% if role.id is none %}
+    <label>Organisation (Mandant)
+        <select name="organization_id" required>
+            <option value="">— bitte wählen —</option>
+            {% for org in organizations %}
+                <option value="{{ org.id }}" {% if preselect_org_id == org.id %}selected{% endif %}>{{ org.name }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    {% elif role.organization %}
+    <p class="small">Organisation: <strong>{{ role.organization.name }}</strong></p>
+    {% endif %}
     <label>Übergeordnete Rolle
         <select name="parent_id">
             <option value="">keine</option>
