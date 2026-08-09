@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
 <div style="max-width:1000px;margin:0 auto;padding:0 16px;">
-  <h2>Mitglieder – {{ account.name }}</h2>
+  <h2>Mitglieder – Mandant «{{ account.name }}»</h2>
+  <p style="color:#666;">Nur Mitglieder dieses Mandanten. Organigramme legt ihr unter
+     «Organisation» an – mehrere pro Mandant sind möglich.</p>
 
   <h3>Mitglieder & Rollen</h3>
   <table style="width:100%;border-collapse:collapse;">
@@ -21,6 +23,16 @@
                    style="width:130px;">
             <button type="submit" title="Passwort zurücksetzen">↺</button>
           </form>
+          {% if not m.user.is_super_admin and m.user_id != current_user.id %}
+          <form method="post" action="{{ url_for('admin.delete_member', membership_id=m.id) }}"
+                style="margin:6px 0 0;"
+                onsubmit="return confirm('Mitglied {{ m.user.email }} wirklich aus dem Mandanten entfernen?');">
+            <button type="submit" class="link-danger"
+                    style="border:none;background:none;color:#b91c1c;cursor:pointer;padding:0;">
+              Mitglied entfernen
+            </button>
+          </form>
+          {% endif %}
         </td>
         <td style="padding:8px;">
           {% for asg in m.assignments %}

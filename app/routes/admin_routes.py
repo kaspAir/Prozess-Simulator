@@ -7,11 +7,11 @@ from app.models import (
     db, Account, Organization, Membership, AccessRole, RoleAssignment, Invitation, User,
     LoginEvent,
 )
-from app.auth.permissions import P_ACCOUNT_MEMBERS
+from app.auth.permissions import P_ACCOUNT_MEMBERS, ACCOUNT_ADMIN_ROLE
 from app.auth.service import (
     require_permission, current_account, set_active_account, set_active_organization, create_invitation,
     is_last_account_admin, set_password, user_has_permission,
-    accessible_organizations, has_account_wide_access,
+    accessible_organizations, has_account_wide_access, seed_template_roles,
 )
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -97,6 +97,28 @@ def create_member():
         flash(f"Mitglied {email} angelegt (Passwort dem Mitglied mitteilen).", "success")
     else:
         flash(f"Bestehender Benutzer {email} zum Account hinzugefügt (Passwort unverändert).", "success")
+    return redirect(url_for("admin.members"))
+
+
+@admin_bp.route("/members/<int:membership_id>/delete", methods=["POST"])
+@require_permission(P_ACCOUNT_MEMBERS)
+def delete_member(membership_id):
+    """Entfernt ein Mitglied (samt Rollenzuweisungen) aus dem Mandanten. Der
+    Benutzer selbst bleibt bestehen (kann in anderen Mandanten Mitglied sein)."""
+    account = current_account()
+    m = db.session.get(Membership, membership_id)
+    if not m or m.account_id != account.id:
+        abort(404)
+    if is_last_account_admin(m):
+        flash("Der letzte Account-Admin kann nicht entfernt werden.", "error")
+        return redirect(url_for("admin.members"))
+    if m.user_id == current_user.id:
+        flash("Du kannst dich nicht selbst aus dem Mandanten entfernen.", "error")
+        return redirect(url_for("admin.members"))
+    email = m.user.email
+    db.session.delete(m)   # RoleAssignments via cascade "all, delete-orphan"
+    db.session.commit()
+    flash(f"Mitglied {email} aus dem Mandanten entfernt.", "success")
     return redirect(url_for("admin.members"))
 
 
@@ -227,3 +249,48 @@ def accounts():
             "organizations": Organization.query.filter_by(account_id=acc.id).count(),
         })
     return render_template("admin/accounts.html", rows=rows)
+
+
+@admin_bp.route("/accounts/create", methods=["POST"])
+@login_required
+def create_account():
+    """Legt einen neuen Mandanten (Account) an – inkl. Vorlagen-Rollen – und
+    optional gleich einen Erst-Admin (Mandanten-Administrator). Nur Super-Admin.
+    Das Organigramm erstellt später ein Benutzer des Mandanten selbst im Tool."""
+    _super_admin_only()
+    name = (request.form.get("name") or "").strip()
+    admin_name = (request.form.get("admin_name") or "").strip()
+    admin_email = (request.form.get("admin_email") or "").strip().lower()
+    admin_password = request.form.get("admin_password") or ""
+    if not name:
+        flash("Name des Mandanten ist erforderlich.", "error")
+        return redirect(url_for("admin.accounts"))
+    if admin_email and len(admin_password) < 8:
+        flash("Passwort des Erst-Admins muss mindestens 8 Zeichen haben.", "error")
+        return redirect(url_for("admin.accounts"))
+
+    acc = Account(name=name)
+    db.session.add(acc)
+    db.session.flush()
+    seed_template_roles(acc.id)
+    db.session.flush()
+
+    if admin_email:
+        user = User.query.filter_by(email=admin_email).first()
+        if user is None:
+            user = User(name=admin_name or admin_email, email=admin_email)
+            set_password(user, admin_password)
+            db.session.add(user)
+            db.session.flush()
+        m = Membership(user_id=user.id, account_id=acc.id)
+        db.session.add(m)
+        db.session.flush()
+        admin_role = AccessRole.query.filter_by(account_id=acc.id, name=ACCOUNT_ADMIN_ROLE).first()
+        db.session.add(RoleAssignment(membership_id=m.id, access_role_id=admin_role.id,
+                                      organization_id=None))
+    db.session.commit()
+    msg = f"Mandant «{name}» angelegt."
+    if admin_email:
+        msg += f" Erst-Admin {admin_email} zugewiesen."
+    flash(msg, "success")
+    return redirect(url_for("admin.accounts"))

@@ -1,10 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
 <div style="max-width:900px;margin:0 auto;padding:0 16px;">
-  <h2>Alle Accounts (Super-Admin)</h2>
+  <h2>Mandanten (Super-Admin)</h2>
+  <p style="color:#666;">Ein <strong>Mandant</strong> ist ein abgeschlossener Bereich. Die
+     <strong>Organigramme/Organisationen</strong> darin erstellt später ein Benutzer des
+     Mandanten selbst im Tool.</p>
   <table style="width:100%;border-collapse:collapse;">
     <thead><tr style="text-align:left;border-bottom:2px solid #e5e7eb;">
-      <th style="padding:6px;">Account</th><th>Mitglieder</th><th>Organisationen</th><th></th>
+      <th style="padding:6px;">Mandant</th><th>Mitglieder</th><th>Organigramme</th><th></th>
     </tr></thead>
     <tbody>
     {% for row in rows %}
@@ -17,9 +20,23 @@
         </td>
       </tr>
     {% else %}
-      <tr><td colspan="4" style="padding:8px;color:#999;">Noch keine Accounts.</td></tr>
+      <tr><td colspan="4" style="padding:8px;color:#999;">Noch keine Mandanten.</td></tr>
     {% endfor %}
     </tbody>
   </table>
+
+  <h3 style="margin-top:28px;">Neuen Mandanten anlegen</h3>
+  <form method="post" action="{{ url_for('admin.create_account') }}"
+        style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+    <label>Name des Mandanten<br><input type="text" name="name" required></label>
+    <span style="align-self:center;color:#999;">— optional gleich ein Erst-Admin:</span>
+    <label>Admin-Name<br><input type="text" name="admin_name"></label>
+    <label>Admin-E-Mail<br><input type="email" name="admin_email"></label>
+    <label>Admin-Passwort<br><input type="password" name="admin_password" minlength="8"></label>
+    <button type="submit">Mandant anlegen</button>
+  </form>
+  <p style="color:#999;font-size:.9em;margin-top:6px;">
+    Der Erst-Admin wird als Mandanten-Administrator (accountweit) zugewiesen und kann
+    danach weitere Benutzer und Organigramme des Mandanten selbst verwalten.</p>
 </div>
 {% endblock %}

@@ -34,6 +34,20 @@ def current_account():
     return None
 
 
+def seed_template_roles(account_id):
+    """Legt die Vorlagen-Rollen (Account-Admin, Viewer, …) für einen neuen Account
+    (Mandanten) an – analog zum Seed-Skript, aber zur Laufzeit."""
+    from app.auth.permissions import TEMPLATE_ROLES
+    from app.models import AccessRole, AccessRolePermission
+    for name, perms in TEMPLATE_ROLES.items():
+        if AccessRole.query.filter_by(account_id=account_id, name=name).first() is None:
+            role = AccessRole(account_id=account_id, name=name, is_template=True)
+            db.session.add(role)
+            db.session.flush()
+            for p in perms:
+                db.session.add(AccessRolePermission(access_role_id=role.id, permission_key=p))
+
+
 def has_account_wide_access(user, account=None):
     """True, wenn der User den ganzen Account sehen darf (Super-Admin oder eine
     accountweite Rollenzuweisung). Nur dann ist «ganzer Account» zulaessig."""
