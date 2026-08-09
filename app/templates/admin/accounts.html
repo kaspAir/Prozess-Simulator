@@ -7,14 +7,25 @@
      Mandanten selbst im Tool.</p>
   <table style="width:100%;border-collapse:collapse;">
     <thead><tr style="text-align:left;border-bottom:2px solid #e5e7eb;">
-      <th style="padding:6px;">Mandant</th><th>Mitglieder</th><th>Organigramme</th><th></th>
+      <th style="padding:6px;">Mandant</th><th>Mitglieder</th><th>Organisationen (Organigramme)</th><th></th>
     </tr></thead>
     <tbody>
     {% for row in rows %}
-      <tr style="border-bottom:1px solid #eee;">
-        <td style="padding:8px;">{{ row.account.name }}</td>
+      <tr style="border-bottom:1px solid #eee;vertical-align:top;">
+        <td style="padding:8px;"><strong>{{ row.account.name }}</strong></td>
         <td style="padding:8px;">{{ row.members }}</td>
-        <td style="padding:8px;">{{ row.organizations }}</td>
+        <td style="padding:8px;">
+          {% for o in row.organizations %}
+            <span style="display:inline-block;background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:1px 8px;margin:2px;">{{ o.name }}</span>
+          {% else %}
+            <em style="color:#999;">noch keine</em>
+          {% endfor %}
+          <form method="post" action="{{ url_for('admin.create_account_organization', account_id=row.account.id) }}"
+                style="margin:6px 0 0;display:flex;gap:4px;">
+            <input type="text" name="name" placeholder="Organisation hinzufügen" style="width:180px;">
+            <button type="submit">+</button>
+          </form>
+        </td>
         <td style="padding:8px;">
           <a href="{{ url_for('admin.switch_account', account_id=row.account.id) }}">hineinschauen →</a>
         </td>
@@ -29,6 +40,7 @@
   <form method="post" action="{{ url_for('admin.create_account') }}"
         style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
     <label>Name des Mandanten<br><input type="text" name="name" required></label>
+    <label>Erste Organisation (optional)<br><input type="text" name="first_org" placeholder="z. B. Organigramm 2026"></label>
     <span style="align-self:center;color:#999;">— optional gleich ein Erst-Admin:</span>
     <label>Admin-Name<br><input type="text" name="admin_name"></label>
     <label>Admin-E-Mail<br><input type="email" name="admin_email"></label>

@@ -27,6 +27,42 @@ def test_super_admin_creates_mandant_with_first_admin(app, client):
         assert asg is not None and P_ACCOUNT_MEMBERS in asg.access_role.permission_keys
 
 
+def test_super_admin_creates_mandant_with_first_org(app, client):
+    make_account_with_role(app, ACCOUNT_ADMIN_ROLE, TEMPLATE_ROLES[ACCOUNT_ADMIN_ROLE],
+                           email="super2@test.ch", is_super_admin=True)
+    login(client, "super2@test.ch")
+    client.post("/admin/accounts/create",
+                data={"name": "OLL", "first_org": "Organigramm A"}, follow_redirects=True)
+    with app.app_context():
+        from app.models import Account, Organization
+        acc = Account.query.filter_by(name="OLL").first()
+        assert acc is not None
+        assert Organization.query.filter_by(account_id=acc.id, name="Organigramm A").count() == 1
+
+
+def test_super_admin_adds_organization_to_mandant(app, client):
+    make_account_with_role(app, ACCOUNT_ADMIN_ROLE, TEMPLATE_ROLES[ACCOUNT_ADMIN_ROLE],
+                           email="super3@test.ch", is_super_admin=True)
+    login(client, "super3@test.ch")
+    client.post("/admin/accounts/create", data={"name": "Schlichtung"}, follow_redirects=True)
+    with app.app_context():
+        from app.models import Account
+        acc_id = Account.query.filter_by(name="Schlichtung").first().id
+    client.post(f"/admin/accounts/{acc_id}/organization",
+                data={"name": "Organigramm 2026"}, follow_redirects=True)
+    with app.app_context():
+        from app.models import Organization
+        assert Organization.query.filter_by(account_id=acc_id, name="Organigramm 2026").count() == 1
+
+
+def test_non_super_admin_cannot_add_org_to_mandant(app, client):
+    acc, _, _ = make_account_with_role(app, ACCOUNT_ADMIN_ROLE, TEMPLATE_ROLES[ACCOUNT_ADMIN_ROLE],
+                                       email="normal2@test.ch")
+    login(client, "normal2@test.ch")
+    assert client.post(f"/admin/accounts/{acc}/organization",
+                       data={"name": "X"}).status_code == 403
+
+
 def test_non_super_admin_cannot_create_mandant(app, client):
     make_account_with_role(app, ACCOUNT_ADMIN_ROLE, TEMPLATE_ROLES[ACCOUNT_ADMIN_ROLE],
                            email="normal@test.ch")

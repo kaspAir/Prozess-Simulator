@@ -250,10 +250,11 @@ def accounts():
     _super_admin_only()
     rows = []
     for acc in Account.query.order_by(Account.name).all():
+        orgs = Organization.query.filter_by(account_id=acc.id).order_by(Organization.name).all()
         rows.append({
             "account": acc,
             "members": Membership.query.filter_by(account_id=acc.id).count(),
-            "organizations": Organization.query.filter_by(account_id=acc.id).count(),
+            "organizations": orgs,
         })
     return render_template("admin/accounts.html", rows=rows)
 
@@ -269,6 +270,7 @@ def create_account():
     admin_name = (request.form.get("admin_name") or "").strip()
     admin_email = (request.form.get("admin_email") or "").strip().lower()
     admin_password = request.form.get("admin_password") or ""
+    first_org = (request.form.get("first_org") or "").strip()
     if not name:
         flash("Name des Mandanten ist erforderlich.", "error")
         return redirect(url_for("admin.accounts"))
@@ -281,6 +283,9 @@ def create_account():
     db.session.flush()
     seed_template_roles(acc.id)
     db.session.flush()
+
+    if first_org:
+        db.session.add(Organization(account_id=acc.id, name=first_org))
 
     if admin_email:
         user = User.query.filter_by(email=admin_email).first()
@@ -297,7 +302,28 @@ def create_account():
                                       organization_id=None))
     db.session.commit()
     msg = f"Mandant «{name}» angelegt."
+    if first_org:
+        msg += f" Organisation «{first_org}» erstellt."
     if admin_email:
         msg += f" Erst-Admin {admin_email} zugewiesen."
     flash(msg, "success")
+    return redirect(url_for("admin.accounts"))
+
+
+@admin_bp.route("/accounts/<int:account_id>/organization", methods=["POST"])
+@login_required
+def create_account_organization(account_id):
+    """Super-Admin legt eine Organisation (Organigramm) innerhalb eines bestimmten
+    Mandanten an – ohne in den Mandanten wechseln zu müssen."""
+    _super_admin_only()
+    acc = db.session.get(Account, account_id)
+    if acc is None:
+        abort(404)
+    name = (request.form.get("name") or "").strip()
+    if not name:
+        flash("Name der Organisation ist erforderlich.", "error")
+        return redirect(url_for("admin.accounts"))
+    db.session.add(Organization(account_id=acc.id, name=name))
+    db.session.commit()
+    flash(f"Organisation «{name}» im Mandanten «{acc.name}» angelegt.", "success")
     return redirect(url_for("admin.accounts"))

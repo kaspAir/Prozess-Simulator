@@ -108,7 +108,7 @@
             <a href="{{ url_for('main.test_protocol_pdf') }}" title="PDF-Testprotokoll des zuletzt deployten Builds">Testprotokoll</a>
         {% endif %}
         {% if current_user.is_super_admin %}
-            <a href="{{ url_for('admin.accounts') }}">Accounts</a>
+            <a href="{{ url_for('admin.accounts') }}">Mandanten</a>
         {% endif %}
         <a href="{{ url_for('auth.account') }}">Mein Konto</a>
         <a href="{{ url_for('auth.logout') }}">Logout</a>
